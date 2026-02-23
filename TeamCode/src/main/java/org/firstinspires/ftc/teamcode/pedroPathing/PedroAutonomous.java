@@ -1,9 +1,5 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
-import android.service.credentials.Action;
-
-import androidx.annotation.NonNull;
-
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -12,14 +8,13 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.TelemetryManager;
 import com.bylazar.telemetry.PanelsTelemetry;
 
-import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.paths.PathChain;
 import com.pedropathing.geometry.Pose;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
+import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
 
 @Autonomous(name = "Daryl Pathing Autonomous", group = "Autonomous")
@@ -37,7 +32,8 @@ public class PedroAutonomous extends OpMode {
 
     private Timer pathTimer, actionTimer, opmodeTimer;
     private DcMotorEx intake, flywheel1, flywheel2, gecko;
-    public turretSub turret;
+    public turretSub turretSub;
+    public intakeSub intakeSub;
 
 
 
@@ -68,7 +64,8 @@ public class PedroAutonomous extends OpMode {
 
         panelsTelemetry.debug("Status", "Initialized");
         panelsTelemetry.update(telemetry);
-        turret = new turretSub(hardwareMap);
+        turretSub = new turretSub(hardwareMap);
+        intakeSub = new intakeSub(hardwareMap);
 
     }
 

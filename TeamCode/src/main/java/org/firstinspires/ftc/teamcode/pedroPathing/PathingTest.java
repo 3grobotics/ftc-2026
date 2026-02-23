@@ -13,6 +13,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
+import org.firstinspires.ftc.teamcode.Subsystems.flywheelSub;
+import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
 
 @Autonomous(name = "15 arty test", group = "Autonomous")
@@ -30,7 +32,9 @@ public class PathingTest extends OpMode {
 
     private Timer pathTimer, actionTimer, opmodeTimer;
     private DcMotorEx intake, flywheel1, flywheel2, gecko;
-    public turretSub turret;
+    public static turretSub turretSub;
+    public static intakeSub intakeSub;
+    public static flywheelSub flywheelSub;
 
 
 
@@ -42,15 +46,19 @@ public class PathingTest extends OpMode {
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(new Pose(96, 8, Math.toRadians(90)));
 
+        // create subsystems FIRST
+        turretSub = new turretSub(hardwareMap);
+        intakeSub = new intakeSub(hardwareMap);
+        flywheelSub = new flywheelSub(hardwareMap);
+
+        // then build paths (now turretSub/intakeSub aren't null)
         paths = new Paths(follower);
 
-        intake        = hardwareMap.get(DcMotorEx.class, "intake");
-        flywheel1     = hardwareMap.get(DcMotorEx.class, "flywheel1");
-        flywheel2     = hardwareMap.get(DcMotorEx.class, "flywheel2");
-        gecko         = hardwareMap.get(DcMotorEx.class, "gecko");
+        intake    = hardwareMap.get(DcMotorEx.class, "intake");
+        flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
+        flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
+        gecko     = hardwareMap.get(DcMotorEx.class, "gecko");
 
-
-        // Timers MUST exist before you can reset them
         pathTimer = new Timer();
         actionTimer = new Timer();
         opmodeTimer = new Timer();
@@ -61,8 +69,6 @@ public class PathingTest extends OpMode {
 
         panelsTelemetry.debug("Status", "Initialized");
         panelsTelemetry.update(telemetry);
-        turret = new turretSub(hardwareMap);
-
     }
 
     @Override
@@ -75,9 +81,13 @@ public class PathingTest extends OpMode {
     @Override
     public void loop() {
 
+
         // Update follower FIRST
         follower.update();
-        turret.loop();
+        turretSub.loop();
+        intakeSub.loop();
+        flywheelSub.loop();
+
 
         // Run your autonomous state machine
         autonomousPathUpdate();
@@ -98,7 +108,6 @@ public class PathingTest extends OpMode {
 
             case 0:
                 follower.followPath(paths.Path1, true);
-                turret.turretPointFive();
                 setPathState(1);
                 break;
 
@@ -112,7 +121,7 @@ public class PathingTest extends OpMode {
             case 2:
                 if (!follower.isBusy()) {
                     follower.followPath(paths.Path3, true); // (aka RESET)
-                    setPathState(3);
+                    setPathState(-1);
                 }
                 break;
 
@@ -221,136 +230,77 @@ public class PathingTest extends OpMode {
 
         public Paths(Follower follower) {
             Path1 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(96.000, 8.000),
-                                    new Pose(98.000, 35.000)
-                            )
-                    )
+
+                    .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(98.000, 35.000)))
+                    .addTemporalCallback(0, follower.pausePathFollowing())
+                    .addTemporalCallback(1, flywheelSub.autoFlywheelFar())
+                    //turret goes in here somewhere
+                    .addTemporalCallback(1000, intakeSub.intakeInGeckoIn())
+                    .addTemporalCallback(1500, () -> follower.resumePathFollowing())
+                    .addParametricCallback(1, turretSub.turretPointFive())
+                    .addPoseCallback(new Pose(96.000, 8.000, Math.toRadians(0)), intakeSub.IntakeInGeckoOut(), 3.0)
                     .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(0))
                     .build();
 
             Path2 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(98.000, 35.000),
-                                    new Pose(130.000, 35.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(98.0, 35.0), new Pose(130.0, 35.0)))
+                    .addPoseCallback(new Pose(98.0, 35.0, Math.toRadians(0)), intakeSub.IntakeInGeckoOut(), 3.0)
+                    .addParametricCallback(99, intakeSub.intakeAndGeckoStop())
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
             Path3 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(130.000, 35.000),
-                                    new Pose(96.000, 8.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(130.000, 35.000), new Pose(96.000, 8.000)))
                     .setConstantHeadingInterpolation(Math.toRadians(90))
                     .build();
 
             Path4 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(96.000, 8.000),
-                                    new Pose(100.000, 59.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(100.000, 59.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(0))
                     .build();
 
             Path5 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(100.000, 59.000),
-                                    new Pose(130.000, 59.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(100.000, 59.000), new Pose(130.000, 59.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
             Path6 = follower.pathBuilder()
-                    .addPath(
-                            new BezierCurve(
-                                    new Pose(130.000, 59.000),
-                                    new Pose(101.000, 66.000),
-                                    new Pose(130.000, 69.000)
-                            )
-                    )
+                    .addPath(new BezierCurve(new Pose(130.000, 59.000), new Pose(101.000, 66.000), new Pose(130.000, 69.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
             Path7 = follower.pathBuilder()
-                    .addPath(
-                            new BezierCurve(
-                                    new Pose(130.000, 69.000),
-                                    new Pose(107.500, 72.500),
-                                    new Pose(96.000, 8.000)
-                            )
-                    )
+                    .addPath(new BezierCurve(new Pose(130.000, 69.000), new Pose(107.500, 72.500), new Pose(96.000, 8.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(90))
                     .build();
 
             Path8 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(96.000, 8.000),
-                                    new Pose(100.000, 83.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(100.000, 83.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(0))
                     .build();
 
             Path9 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(100.000, 83.000),
-                                    new Pose(130.000, 83.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(100.000, 83.000), new Pose(130.000, 83.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
             Path10 = follower.pathBuilder()
-                    .addPath(
-                            new BezierCurve(
-                                    new Pose(130.000, 83.000),
-                                    new Pose(99.491, 91.140),
-                                    new Pose(96.000, 8.000)
-                            )
-                    )
+                    .addPath(new BezierCurve(new Pose(130.000, 83.000), new Pose(99.491, 91.140), new Pose(96.000, 8.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(90))
                     .build();
 
             Path11 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(96.000, 8.000),
-                                    new Pose(133.000, 27.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(133.000, 27.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(-63))
                     .build();
 
             Path12 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(133.000, 27.000),
-                                    new Pose(135.000, 8.000)
-                            )
-                    )
+                    .addPath(new BezierLine(new Pose(133.000, 27.000), new Pose(135.000, 8.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(-63), Math.toRadians(-90))
                     .build();
 
             Path13 = follower.pathBuilder()
-                    .addPath(
-                            new BezierCurve(
-                                    new Pose(135.000, 8.000),
-                                    new Pose(116.800, 28.700),
-                                    new Pose(96.000, 8.000)
-                            )
-                    )
+                    .addPath(new BezierCurve(new Pose(135.000, 8.000), new Pose(116.800, 28.700), new Pose(96.000, 8.000)))
                     .setLinearHeadingInterpolation(Math.toRadians(-90), Math.toRadians(90))
                     .build();
         }

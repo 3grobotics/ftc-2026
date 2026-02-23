@@ -31,10 +31,12 @@ public class turretSub {
     }
 
 
-    public void turretPointFive() {
-        loopActive = true;
-        target = .5;
-        target2 = .5;
+    public Runnable turretPointFive() {
+        return () -> {
+            loopActive = true;
+            target = 0.5;
+            target2 = 0.5;
+        };
     }
 
 
