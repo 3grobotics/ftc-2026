@@ -36,7 +36,7 @@ public class ExampleRobotCentricTeleop extends OpMode {
                 -gamepad1.left_stick_y,   // forward/back
                 -gamepad1.left_stick_x,   // strafe
                 -gamepad1.right_stick_x,  // turn
-                true                      // match LocalizationTest (robot-centric flag in your snippet)
+                true                       // match LocalizationTest (robot-centric flag in your snippet)
         );
         follower.update();
 
