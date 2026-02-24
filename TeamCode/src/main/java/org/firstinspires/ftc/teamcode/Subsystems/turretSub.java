@@ -28,6 +28,7 @@ public class turretSub {
         
         turret1.setPosition(target); 
         turret2.setPosition(target2);
+
     }
 
 
@@ -42,8 +43,8 @@ public class turretSub {
     public Runnable turretFarFire() {
         return () -> {
             loopActive = true;
-            target  = 0.3;
-            target2 = 0.3;
+            target  = 0.45;
+            target2 = 0.45;
         };
     }
 

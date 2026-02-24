@@ -18,6 +18,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 import org.firstinspires.ftc.teamcode.Subsystems.flywheelSub;
+import org.firstinspires.ftc.teamcode.Subsystems.hardwareSub;
 import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
 import com.acmerobotics.roadrunner.Action;
@@ -36,13 +37,15 @@ public class PathingTest extends LinearOpMode {
 
     private Timer pathTimer, actionTimer, opmodeTimer;
     private DcMotorEx intake, flywheel1, flywheel2, gecko;
-    private Servo hood;
+    private Servo hood, turret1, turret2;
     public static turretSub turretSub;
     public static intakeSub intakeSub;
     public static flywheelSub flywheelSub;
+    private hardwareSub hSub;
 
-    private double flywheel1Vel = 0.0;
-    private double flywheel2Vel = 0.0;
+
+    private double flywheel1Vel = 1800;
+    private double flywheel2Vel = 1800;
     private Robot robot;
 
     // ===== RR Action runner (minimal) =====
@@ -72,8 +75,7 @@ public class PathingTest extends LinearOpMode {
 
         private class fire implements Action {
             @Override public boolean run(@NonNull TelemetryPacket p) {
-                intake.setPower(1);
-                gecko.setPower(-1);
+                intakeSub.intakeInGeckoIn();
                 return true; // keep looping
             }
         }
@@ -102,6 +104,11 @@ public class PathingTest extends LinearOpMode {
         public Action flywheelUp() { return new flywheelUp(); }
     }
 
+
+
+
+
+
     @Override
     public void runOpMode() throws InterruptedException {
         panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
@@ -109,17 +116,24 @@ public class PathingTest extends LinearOpMode {
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(new Pose(96, 8, Math.toRadians(90)));
 
+        hSub = new hardwareSub(hardwareMap);
         turretSub = new turretSub(hardwareMap);
         intakeSub = new intakeSub(hardwareMap);
         flywheelSub = new flywheelSub(hardwareMap);
 
+
+
         paths = new Paths(follower);
 
-        intake    = hardwareMap.get(DcMotorEx.class, "intake");
-        flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
-        flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
-        gecko     = hardwareMap.get(DcMotorEx.class, "gecko");
-        hood      = hardwareMap.get(Servo.class, "hood");
+        //intake    = hardwareMap.get(DcMotorEx.class, "intake");
+        //flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
+        //flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
+        //gecko     = hardwareMap.get(DcMotorEx.class, "gecko");
+        //hood      = hardwareMap.get(Servo.class, "hood");
+        //turret1   = hardwareMap.get(Servo.class, "turret");
+        //turret2   = hardwareMap.get(Servo.class, "turret2");
+
+
 
         pathTimer = new Timer();
         actionTimer = new Timer();
@@ -129,10 +143,10 @@ public class PathingTest extends LinearOpMode {
         actionTimer.resetTimer();
         opmodeTimer.resetTimer();
 
-        flywheel1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
-        flywheel2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
-        flywheel1.setDirection(DcMotorEx.Direction.REVERSE);
-        flywheel2.setDirection(DcMotorEx.Direction.REVERSE);
+        hSub.flywheel1.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+        hSub.flywheel2.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+        hSub.flywheel1.setDirection(DcMotorEx.Direction.REVERSE);
+        hSub.flywheel2.setDirection(DcMotorEx.Direction.REVERSE);
 
         panelsTelemetry.debug("Status", "Initialized");
         panelsTelemetry.update(telemetry);
@@ -157,7 +171,7 @@ public class PathingTest extends LinearOpMode {
         waitForStart();
         if (isStopRequested()) return;
 
-        flywheelSub.autoFlywheelFar();
+       // flywheelSub.autoFlywheelFar();
         setPathState(0);
         opmodeTimer.resetTimer();
 
@@ -167,9 +181,15 @@ public class PathingTest extends LinearOpMode {
             turretSub.loop();
             intakeSub.loop();
             flywheelSub.loop();
+            double target  = 0.4;
+            double target2 = 0.4;
+            hSub.turret1.setPosition(target);
+            hSub.turret2.setPosition(target2);
 
-            flywheel1.setVelocity(flywheel1Vel);
-            flywheel2.setVelocity(flywheel2Vel);
+
+
+            hSub.flywheel1.setVelocity(flywheel1Vel);
+            hSub.flywheel2.setVelocity(flywheel2Vel);
 
             // ===== run current RR action each loop =====
             updateAction();
@@ -182,26 +202,30 @@ public class PathingTest extends LinearOpMode {
             panelsTelemetry.debug("Y", pose.getY());
             panelsTelemetry.debug("Heading", pose.getHeading());
             panelsTelemetry.debug("Busy", follower.isBusy());
+            panelsTelemetry.debug("flywheel1 velocity", hSub.flywheel1.getVelocity());
+            panelsTelemetry.debug("actiontimer", actionTimer.getElapsedTime());
             panelsTelemetry.update(telemetry);
         }
     }
 
     public void autonomousPathUpdate() {
+
         switch (pathState) {
 
             case 0:
                 actionTimer.getElapsedTime();
 
-                if (currentAction == null) {
-                    startAction(robot.flywheelUp());
+                if (actionTimer.getElapsedTime() > 3000) {
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(-1);
                 }
-                if (currentAction == null && flywheel1.getVelocity() > 1600) {
-                    startAction(robot.fire());
-                }
-                if (actionTimer.getElapsedTime() > 4000) {
+
+                if (actionTimer.getElapsedTime() > 6000) {
+                    actionTimer.resetTimer();
                     follower.followPath(paths.Path1, true);
                     setPathState(1);
-                    actionTimer.resetTimer();
+                    hSub.intake.setPower(0);
+                    hSub.gecko.setPower(0);
                 }
                 break;
 
@@ -215,7 +239,7 @@ public class PathingTest extends LinearOpMode {
             case 2:
                 if (!follower.isBusy()) {
                     follower.followPath(paths.Path3, true); // (aka RESET)
-                    setPathState(-1);
+                    setPathState(3);
                 }
                 break;
 
@@ -223,13 +247,25 @@ public class PathingTest extends LinearOpMode {
                 if (!follower.isBusy()) {
                     follower.followPath(paths.Path4, true);
                     setPathState(4);
+                    actionTimer.resetTimer();   // ✅ START THE PAUSE TIMER WHEN ENTERING STATE 4
                 }
                 break;
 
             case 4:
-                if (!follower.isBusy()) {
+                follower.pausePathFollowing();
+
+                if (actionTimer.getElapsedTime() > 1000) {
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(-1);
+                }
+
+                if (actionTimer.getElapsedTime() > 3000) {
+                    follower.resumePathFollowing();
                     follower.followPath(paths.Path5, true);
                     setPathState(5);
+                    actionTimer.resetTimer();   // optional: reset for next timed thing
+                    hSub.intake.setPower(0);
+                    hSub.gecko.setPower(0);
                 }
                 break;
 
