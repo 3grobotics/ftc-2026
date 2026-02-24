@@ -39,5 +39,13 @@ public class turretSub {
         };
     }
 
+    public Runnable turretFarFire() {
+        return () -> {
+            loopActive = true;
+            target  = 0.3;
+            target2 = 0.3;
+        };
+    }
+
 
     }

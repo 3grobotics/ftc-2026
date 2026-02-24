@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
+import androidx.annotation.NonNull;
+
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
@@ -10,19 +12,21 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 import org.firstinspires.ftc.teamcode.Subsystems.flywheelSub;
 import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
+import com.acmerobotics.roadrunner.Action;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.qualcomm.robotcore.hardware.Servo;
 
 @Autonomous(name = "15 arty test", group = "Autonomous")
 @Configurable // Panels
-public class PathingTest extends OpMode {
-
-
-
+public class PathingTest extends LinearOpMode {
 
     private TelemetryManager panelsTelemetry;   // Panels telemetry
     public Follower follower;                   // Pedro follower
@@ -32,32 +36,90 @@ public class PathingTest extends OpMode {
 
     private Timer pathTimer, actionTimer, opmodeTimer;
     private DcMotorEx intake, flywheel1, flywheel2, gecko;
+    private Servo hood;
     public static turretSub turretSub;
     public static intakeSub intakeSub;
     public static flywheelSub flywheelSub;
 
+    private double flywheel1Vel = 0.0;
+    private double flywheel2Vel = 0.0;
+    private Robot robot;
 
+    // ===== RR Action runner (minimal) =====
+    private Action currentAction = null;
+    private final TelemetryPacket actionPacket = new TelemetryPacket();
 
+    private void startAction(Action a) {
+        currentAction = a;
+    }
+
+    private void updateAction() {
+        if (currentAction == null) return;
+        // RR convention: true = keep running, false = finished
+        boolean keepRunning = currentAction.run(actionPacket);
+        if (!keepRunning) currentAction = null;
+    }
+
+    public class Robot {
+        private class intake implements Action {
+            @Override public boolean run(@NonNull TelemetryPacket p) {
+                intake.setPower(1);
+                gecko.setPower(1);
+                return true; // keep looping
+            }
+        }
+        public Action intake() { return new intake(); }
+
+        private class fire implements Action {
+            @Override public boolean run(@NonNull TelemetryPacket p) {
+                intake.setPower(1);
+                gecko.setPower(-1);
+                return true; // keep looping
+            }
+        }
+        public Action fire() { return new fire(); }
+
+        private class stopFire implements Action {
+            @Override public boolean run(@NonNull TelemetryPacket p) {
+                intake.setPower(0);
+                gecko.setPower(0);
+                return true; // keep looping
+            }
+        }
+        public Action stopFire() { return new stopFire(); }
+
+        private class flywheelUp implements Action {
+            @Override public boolean run(@NonNull TelemetryPacket p) {
+                hood.setPosition(1);
+                turretSub.turretFarFire();
+                flywheel1.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+                flywheel2.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+                flywheel1.setVelocity(1800);
+                flywheel2.setVelocity(1800);
+                return true; // keep looping
+            }
+        }
+        public Action flywheelUp() { return new flywheelUp(); }
+    }
 
     @Override
-    public void init() {
+    public void runOpMode() throws InterruptedException {
         panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
 
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(new Pose(96, 8, Math.toRadians(90)));
 
-        // create subsystems FIRST
         turretSub = new turretSub(hardwareMap);
         intakeSub = new intakeSub(hardwareMap);
         flywheelSub = new flywheelSub(hardwareMap);
 
-        // then build paths (now turretSub/intakeSub aren't null)
         paths = new Paths(follower);
 
         intake    = hardwareMap.get(DcMotorEx.class, "intake");
         flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
         flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
         gecko     = hardwareMap.get(DcMotorEx.class, "gecko");
+        hood      = hardwareMap.get(Servo.class, "hood");
 
         pathTimer = new Timer();
         actionTimer = new Timer();
@@ -67,48 +129,80 @@ public class PathingTest extends OpMode {
         actionTimer.resetTimer();
         opmodeTimer.resetTimer();
 
+        flywheel1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+        flywheel2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+        flywheel1.setDirection(DcMotorEx.Direction.REVERSE);
+        flywheel2.setDirection(DcMotorEx.Direction.REVERSE);
+
         panelsTelemetry.debug("Status", "Initialized");
         panelsTelemetry.update(telemetry);
-    }
 
-    @Override
-    public void start() {
+        while (!isStarted() && !isStopRequested()) {
+            follower.update();
+
+            turretSub.loop();
+            intakeSub.loop();
+            flywheelSub.loop();
+
+            Pose pose = follower.getPose();
+            panelsTelemetry.debug("Status", "Init Loop");
+            panelsTelemetry.debug("X", pose.getX());
+            panelsTelemetry.debug("Y", pose.getY());
+            panelsTelemetry.debug("Heading", pose.getHeading());
+            panelsTelemetry.update(telemetry);
+        }
+
+        robot = new Robot();
+
+        waitForStart();
+        if (isStopRequested()) return;
+
+        flywheelSub.autoFlywheelFar();
         setPathState(0);
         opmodeTimer.resetTimer();
 
+        while (opModeIsActive() && !isStopRequested()) {
+            follower.update();
+
+            turretSub.loop();
+            intakeSub.loop();
+            flywheelSub.loop();
+
+            flywheel1.setVelocity(flywheel1Vel);
+            flywheel2.setVelocity(flywheel2Vel);
+
+            // ===== run current RR action each loop =====
+            updateAction();
+
+            autonomousPathUpdate();
+
+            Pose pose = follower.getPose();
+            panelsTelemetry.debug("Path State", pathState);
+            panelsTelemetry.debug("X", pose.getX());
+            panelsTelemetry.debug("Y", pose.getY());
+            panelsTelemetry.debug("Heading", pose.getHeading());
+            panelsTelemetry.debug("Busy", follower.isBusy());
+            panelsTelemetry.update(telemetry);
+        }
     }
-
-    @Override
-    public void loop() {
-
-
-        // Update follower FIRST
-        follower.update();
-        turretSub.loop();
-        intakeSub.loop();
-        flywheelSub.loop();
-
-
-        // Run your autonomous state machine
-        autonomousPathUpdate();
-
-        // Telemetry
-        Pose pose = follower.getPose();
-        panelsTelemetry.debug("Path State", pathState);
-        panelsTelemetry.debug("X", pose.getX());
-        panelsTelemetry.debug("Y", pose.getY());
-        panelsTelemetry.debug("Heading", pose.getHeading());
-        panelsTelemetry.debug("Busy", follower.isBusy());
-        panelsTelemetry.update(telemetry);
-    }
-
 
     public void autonomousPathUpdate() {
         switch (pathState) {
 
             case 0:
-                follower.followPath(paths.Path1, true);
-                setPathState(1);
+                actionTimer.getElapsedTime();
+
+                if (currentAction == null) {
+                    startAction(robot.flywheelUp());
+                }
+                if (currentAction == null && flywheel1.getVelocity() > 1600) {
+                    startAction(robot.fire());
+                }
+                if (actionTimer.getElapsedTime() > 4000) {
+                    follower.followPath(paths.Path1, true);
+                    setPathState(1);
+                    actionTimer.resetTimer();
+                }
                 break;
 
             case 1:
@@ -201,9 +295,7 @@ public class PathingTest extends OpMode {
                 }
                 break;
 
-
             default:
-
                 break;
         }
     }
@@ -230,15 +322,7 @@ public class PathingTest extends OpMode {
 
         public Paths(Follower follower) {
             Path1 = follower.pathBuilder()
-
                     .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(98.000, 35.000)))
-                    .addTemporalCallback(0, follower.pausePathFollowing())
-                    .addTemporalCallback(1, flywheelSub.autoFlywheelFar())
-                    //turret goes in here somewhere
-                    .addTemporalCallback(1000, intakeSub.intakeInGeckoIn())
-                    .addTemporalCallback(1500, () -> follower.resumePathFollowing())
-                    .addParametricCallback(1, turretSub.turretPointFive())
-                    .addPoseCallback(new Pose(96.000, 8.000, Math.toRadians(0)), intakeSub.IntakeInGeckoOut(), 3.0)
                     .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(0))
                     .build();
 
@@ -305,5 +389,4 @@ public class PathingTest extends OpMode {
                     .build();
         }
     }
-
-        }
+}

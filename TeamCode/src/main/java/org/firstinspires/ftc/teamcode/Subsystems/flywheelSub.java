@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 public class flywheelSub {
-    private final DcMotorEx flywheel1, flywheel2;
+    private final DcMotorEx flywheel1, flywheel2, intake, gecko;
 
     // commanded powers (set by runnables, applied in loop)
     private double flywheel1Vel = 0.0;
@@ -17,6 +17,8 @@ public class flywheelSub {
     public flywheelSub(HardwareMap hardwareMap) {
         flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
         flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
+        intake = hardwareMap.get(DcMotorEx.class, "intake");
+        gecko  = hardwareMap.get(DcMotorEx.class, "gecko");
         flywheel1.setDirection(DcMotorEx.Direction.REVERSE);
         flywheel2.setDirection(DcMotorEx.Direction.REVERSE);
         flywheel1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
@@ -42,6 +44,21 @@ public class flywheelSub {
         };
     }
 
+    public Runnable shootFar() {
+        return () -> {
+            loopActive = false;
+            flywheel1Vel = 1800;
+            flywheel2Vel  = 1800;
+            if(flywheel1.getVelocity() > 1700){
+                intake.setPower(1);
+                gecko.setPower(1);
+            } else {
+                intake.setPower(0);
+                gecko.setPower(0);
+            }
+        };
+    }
+
     public Runnable autoFlywheelClose() {
         return () -> {
             loopActive = false;
@@ -51,3 +68,4 @@ public class flywheelSub {
     }
 
 }
+
