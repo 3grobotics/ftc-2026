@@ -181,8 +181,8 @@ public class PathingTest extends LinearOpMode {
             turretSub.loop();
             intakeSub.loop();
             flywheelSub.loop();
-            double target  = 0.4;
-            double target2 = 0.4;
+            double target  = 0.453;
+            double target2 = 0.453;
             hSub.turret1.setPosition(target);
             hSub.turret2.setPosition(target2);
 
@@ -215,7 +215,7 @@ public class PathingTest extends LinearOpMode {
             case 0:
                 actionTimer.getElapsedTime();
 
-                if (actionTimer.getElapsedTime() > 3000) {
+                if (actionTimer.getElapsedTime() > 3000 && actionTimer.getElapsedTime() < 6000) {
                     hSub.intake.setPower(1);
                     hSub.gecko.setPower(-1);
                 }
@@ -254,7 +254,7 @@ public class PathingTest extends LinearOpMode {
             case 4:
                 follower.pausePathFollowing();
 
-                if (actionTimer.getElapsedTime() > 1000) {
+                if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
                     hSub.intake.setPower(1);
                     hSub.gecko.setPower(-1);
                 }
@@ -287,13 +287,26 @@ public class PathingTest extends LinearOpMode {
                 if (!follower.isBusy()) {
                     follower.followPath(paths.Path8, true);
                     setPathState(8);
+                    actionTimer.resetTimer();
                 }
                 break;
 
             case 8:
-                if (!follower.isBusy()) {
+
+                follower.pausePathFollowing();
+
+                if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(-1);
+                }
+
+                if (actionTimer.getElapsedTime() > 3000) {
+                    follower.resumePathFollowing();
                     follower.followPath(paths.Path9, true);
                     setPathState(9);
+                    actionTimer.resetTimer();   // optional: reset for next timed thing
+                    hSub.intake.setPower(0);
+                    hSub.gecko.setPower(0);
                 }
                 break;
 
@@ -306,32 +319,8 @@ public class PathingTest extends LinearOpMode {
 
             case 10:
                 if (!follower.isBusy()) {
-                    follower.followPath(paths.Path11, true);
-                    setPathState(11);
-                }
-                break;
-
-            case 11:
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.Path12, true);
-                    setPathState(12);
-                }
-                break;
-
-            case 12:
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.Path13, true);
-                    setPathState(13);
-                }
-                break;
-
-            case 13:
-                if (!follower.isBusy()) {
                     setPathState(-1);
                 }
-                break;
-
-            default:
                 break;
         }
     }
@@ -352,9 +341,6 @@ public class PathingTest extends LinearOpMode {
         public PathChain Path8;
         public PathChain Path9;
         public PathChain Path10;
-        public PathChain Path11;
-        public PathChain Path12;
-        public PathChain Path13;
 
         public Paths(Follower follower) {
             Path1 = follower.pathBuilder()
@@ -381,46 +367,64 @@ public class PathingTest extends LinearOpMode {
 
             Path5 = follower.pathBuilder()
                     .addPath(new BezierLine(new Pose(100.000, 59.000), new Pose(130.000, 59.000)))
+                    .addPoseCallback(new Pose(100, 59, Math.toRadians(0)), intakeSub.IntakeInGeckoOut(), .5)
+                    .addParametricCallback(99, intakeSub.intakeAndGeckoStop())
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
             Path6 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(130.000, 59.000), new Pose(101.000, 66.000), new Pose(130.000, 69.000)))
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                    .addPath(
+                            new BezierCurve(
+                                    new Pose(130.000, 59.000),
+                                    new Pose(124.000, 64.000),
+                                    new Pose(129.000, 69.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(270))
                     .build();
 
             Path7 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(130.000, 69.000), new Pose(107.500, 72.500), new Pose(96.000, 8.000)))
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(90))
+                    .addPath(
+                            new BezierCurve(
+                                    new Pose(129.000, 69.000),
+                                    new Pose(92.519, 69.817),
+                                    new Pose(96.000, 8.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(270), Math.toRadians(90))
                     .build();
 
             Path8 = follower.pathBuilder()
-                    .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(100.000, 83.000)))
-                    .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(0))
-                    .build();
-
-            Path9 = follower.pathBuilder()
-                    .addPath(new BezierLine(new Pose(100.000, 83.000), new Pose(130.000, 83.000)))
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                    .build();
-
-            Path10 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(130.000, 83.000), new Pose(99.491, 91.140), new Pose(96.000, 8.000)))
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(90))
-                    .build();
-
-            Path11 = follower.pathBuilder()
-                    .addPath(new BezierLine(new Pose(96.000, 8.000), new Pose(133.000, 27.000)))
+                    .addPath(
+                            new BezierLine(
+                                    new Pose(96.000, 8.000),
+                                    new Pose(130.000, 27.000)
+                            )
+                    )
                     .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(-63))
                     .build();
 
-            Path12 = follower.pathBuilder()
-                    .addPath(new BezierLine(new Pose(133.000, 27.000), new Pose(135.000, 8.000)))
+            Path9 = follower.pathBuilder()
+                    .addPath(
+                            new BezierLine(
+                                    new Pose(130.000, 27.000),
+                                    new Pose(130.000, 14.000)
+                            )
+                    )
+                    .addPoseCallback(new Pose(130, 27, Math.toRadians(-63)), intakeSub.IntakeInGeckoOut(), 3.0)
+                    .addParametricCallback(99, intakeSub.intakeAndGeckoStop())
+
                     .setLinearHeadingInterpolation(Math.toRadians(-63), Math.toRadians(-90))
                     .build();
 
-            Path13 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(135.000, 8.000), new Pose(116.800, 28.700), new Pose(96.000, 8.000)))
+            Path10 = follower.pathBuilder()
+                    .addPath(
+                            new BezierCurve(
+                                    new Pose(130.000, 8.000),
+                                    new Pose(116.800, 28.700),
+                                    new Pose(96.000, 8.000)
+                            )
+                    )
                     .setLinearHeadingInterpolation(Math.toRadians(-90), Math.toRadians(90))
                     .build();
         }

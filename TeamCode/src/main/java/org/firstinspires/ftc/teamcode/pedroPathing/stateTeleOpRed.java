@@ -13,10 +13,10 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 //import org.firstinspires.ftc.teamcode.Subsystems.PoseStorage;
 
@@ -29,52 +29,62 @@ public class stateTeleOpRed extends LinearOpMode {
     DcMotor intake, frontLeft, frontRight, backLeft, backRight;
     GoBildaPinpointDriver pip;
 
-    public static double farSlope =  1750 ;
+    public static double farSlope = 1750;
+    public static double BALL_VELOCITY = 200.0;
+    public static double LEAD_MULTIPLIER = 1.0;
+    public static double HEADING_LEAD_GAIN = .3;
+    public static double LATENCY_SEC = 0.05;
+    public static double VEL_DEADZONE = 0.25;
+    public static double HEAD_DEADZONE = 0.02;
+
+    // Pedro Pathing Max Velocities
+    public static double MAX_AXIAL_VEL = 91.05;
+    public static double MAX_LATERAL_VEL = 65.68;
+    public static double FEEDFORWARD_GAIN = 0.6;
+
+    // NEW: Low-Pass Filter Alpha (0.0 = Infinite Smoothing, 1.0 = Raw Jitter)
+    public static double HEADING_FILTER_ALPHA = 0.2;
+
     @Override
     public void runOpMode() {
-        // Hardware Mapping
         hood = hardwareMap.get(Servo.class, "hood");
         turret1 = hardwareMap.get(Servo.class, "turret");
         turret2 = hardwareMap.get(Servo.class, "turret2");
-
-
         f1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
         f2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
         pip = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
         intake = hardwareMap.get(DcMotor.class, "intake");
         gecko = hardwareMap.get(DcMotorEx.class, "gecko");
         frontRight = hardwareMap.get(DcMotor.class, "frontRight");
-        backRight = hardwareMap.get(DcMotor.class,  "backRight ");
-        backLeft = hardwareMap.get(DcMotor.class,   "backLeft  ");
-        frontLeft = hardwareMap.get(DcMotor.class,  "frontLeft ");
+        backRight = hardwareMap.get(DcMotor.class, "backRight ");
+        backLeft = hardwareMap.get(DcMotor.class, "backLeft ");
+        frontLeft = hardwareMap.get(DcMotor.class, "frontLeft ");
 
-
-
-        // Directions
-        frontLeft.setDirection(DcMotorSimple.Direction .FORWARD);
-        backLeft.setDirection(DcMotorSimple.Direction  .FORWARD);
+        frontLeft.setDirection(DcMotorSimple.Direction.FORWARD);
+        backLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         frontRight.setDirection(DcMotorSimple.Direction.REVERSE);
-        backRight.setDirection(DcMotorSimple.Direction .REVERSE);
+        backRight.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        frontLeft .setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        backLeft  .setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        backRight .setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         f1.setDirection(DcMotorSimple.Direction.REVERSE);
         f2.setDirection(DcMotorSimple.Direction.REVERSE);
         hood.setDirection(Servo.Direction.REVERSE);
         turret1.setDirection(Servo.Direction.REVERSE);
 
-        // Pinpoint Config
         pip.setOffsets(-42, -90, DistanceUnit.MM);
         pip.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pip.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
         pip.resetPosAndIMU();
 
-        double tx = -72; // Target X
-        double ty = 72;  // Target Y
+        double tx = -72;
+        double ty = 72;
         double var = 0;
         double AIM_OFFSET_DEG_LOCAL = 1;
-        double visionOffsetDeg = 0.0; // Mocked for this test file since there's no Limelight mapped
-        double axial;
-        double lateral;
-        double yawCmd;
+        double visionOffsetDeg = 0.0;
         boolean emergencyTogglePressed = false;
         boolean emergencyStopActive = false;
         f1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
@@ -82,21 +92,7 @@ public class stateTeleOpRed extends LinearOpMode {
         PanelsTelemetry panelsTelemetry = PanelsTelemetry.INSTANCE;
         FtcDashboard dashboard = FtcDashboard.getInstance();
 
-
-
-        //Pose2d savedPose = PoseStorage.currentPose;
-        // 3. FORCE THE HARDWARE TO THE CORRECT SPOT
-        // This overwrites whatever "wrong" numbers the hardware has
-        //if (savedPose.position.x == 0 && savedPose.position.y == 0 && savedPose.heading.toDouble() == 0) {
-        //    // Case: We didn't run Auto (or it crashed), so assume start of match
-        //    // You might want to change this to your known start pose if testing teleop alone
-        //    // odo.resetPosAndIMU();
-        //} else {
-        //    // Case: We came from Auto! Load the data.
-        //    pip.resetPosAndIMU();
-//
-        //}
-
+        pip.resetPosAndIMU();
 
         double samOffset = 5;
         boolean left = gamepad2.dpad_left;
@@ -109,50 +105,85 @@ public class stateTeleOpRed extends LinearOpMode {
         boolean prevaa = aa;
         boolean prevbb = bb;
 
+        // Persists across loops to calculate the moving average
+        double filteredVHeading = 0.0;
+
         waitForStart();
-        //pip.setPosition(new Pose2D(
-        //        DistanceUnit.INCH,
-        //        savedPose.position.x,
-        //        savedPose.position.y,
-        //        AngleUnit.RADIANS,
-        //        savedPose.heading.toDouble()
-        //));
         telemetry.addLine(">>> AUTO POSITION LOADED <<<");
         while (opModeIsActive()) {
 
-            pip.update(); // leftdate position first!
+            pip.update();
 
+            // 1. Get Joystick Intent Early
+            double axial = gamepad1.left_stick_y;
+            double lateral = -gamepad1.left_stick_x;
+            double yawCmd = -gamepad1.right_stick_x;
+
+            // 2. Get Measured State from Pinpoint
             double robotX = pip.getPosX(DistanceUnit.INCH);
             double robotY = pip.getPosY(DistanceUnit.INCH);
-
-            double xl = tx - robotX;
-            double yl = ty - robotY;
-            double hypot = Math.sqrt((xl * xl) + (yl * yl));
-
-            // =========================================================================
-            //  TURRET APPLICATION (EXACTLY LIKE OLDER CODE)
-            // =========================================================================
-            double angleToGoal = Math.atan2(yl, xl);
             double robotHeading = pip.getHeading(AngleUnit.RADIANS);
 
-            // Base Turret Angle Calculation
-            double calculatedTurretRad = angleToGoal - robotHeading;
+            double measuredVx = pip.getVelX(DistanceUnit.INCH);
+            double measuredVy = pip.getVelY(DistanceUnit.INCH);
+            double rawVHeading = pip.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
 
-            // 1. Wrap angle (-180 to 180)
-            while (calculatedTurretRad > Math.PI) calculatedTurretRad -= 2 * Math.PI;
-            while (calculatedTurretRad < -Math.PI) calculatedTurretRad += 2 * Math.PI;
+            // Apply Low-Pass Filter to smooth out drivetrain vibrations
+            filteredVHeading = (HEADING_FILTER_ALPHA * rawVHeading) + ((1.0 - HEADING_FILTER_ALPHA) * filteredVHeading);
 
-            // 2. Convert to Degrees and apply center offset (159 deg from comment)
+            if (Math.abs(measuredVx) < VEL_DEADZONE) {
+                measuredVx = 0;
+            }
+            if (Math.abs(measuredVy) < VEL_DEADZONE) {
+                measuredVy = 0;
+            }
+            if (Math.abs(filteredVHeading) < HEAD_DEADZONE) {
+                filteredVHeading = 0;
+            }
+
+            // 3. Calculate "Intended" Velocity (Robot-Centric) Using Pedro Pathing Constants
+            double intentVxRobot = lateral * MAX_LATERAL_VEL;
+            double intentVyRobot = axial * MAX_AXIAL_VEL;
+
+            // 4. Rotate Intent to Field-Centric
+            double intentVxField = (intentVxRobot * Math.cos(robotHeading)) - (intentVyRobot * Math.sin(robotHeading));
+            double intentVyField = (intentVxRobot * Math.sin(robotHeading)) + (intentVyRobot * Math.cos(robotHeading));
+
+            // 5. KINEMATIC FEEDFORWARD BLENDING
+            double vx = (measuredVx * (1.0 - FEEDFORWARD_GAIN)) + (intentVxField * FEEDFORWARD_GAIN);
+            double vy = (measuredVy * (1.0 - FEEDFORWARD_GAIN)) + (intentVyField * FEEDFORWARD_GAIN);
+
+            double realXl = tx - robotX;
+            double realYl = ty - robotY;
+            double hypot = Math.sqrt((realXl * realXl) + (realYl * realYl));
+
+            double timeOfFlight = hypot / BALL_VELOCITY;
+
+            double compensatedTx = tx - (vx * timeOfFlight * LEAD_MULTIPLIER);
+            double compensatedTy = ty - (vy * timeOfFlight * LEAD_MULTIPLIER);
+
+            double xlComp = compensatedTx - robotX;
+            double ylComp = compensatedTy - robotY;
+            double angleToGoal = Math.atan2(ylComp, xlComp);
+
+            // Predict future heading using the smooth, filtered vHeading
+            double futureHeading = robotHeading + (filteredVHeading * (timeOfFlight * LEAD_MULTIPLIER + LATENCY_SEC) * HEADING_LEAD_GAIN);
+            double calculatedTurretRad = angleToGoal - futureHeading;
+
+            while (calculatedTurretRad > Math.PI) {
+                calculatedTurretRad -= 2 * Math.PI;
+            }
+            while (calculatedTurretRad < -Math.PI) {
+                calculatedTurretRad += 2 * Math.PI;
+            }
+
             double finalServoDegrees = Math.toDegrees(calculatedTurretRad) + 151.5;
 
-            // 4. Combine Physics + Vision
-             left = gamepad2.dpad_left;
-             right = gamepad2.dpad_right;
-
+            left = gamepad2.dpad_left;
+            right = gamepad2.dpad_right;
             aa = gamepad2.a;
             bb = gamepad2.b;
-            
-            
+
             if (left && !prevleft && !right) {
                 samOffset = Range.clip(samOffset + 2.5, -40, 40);
             }
@@ -160,45 +191,30 @@ public class stateTeleOpRed extends LinearOpMode {
                 samOffset = Range.clip(samOffset - 2.5, -40, 40);
             }
 
-            // leftdate prev AFTER using them
             prevleft = left;
             prevright = right;
 
-            /*if (aa && !prevaa && !bb) {
-                samOffset = Range.clip(samOffset + 2.5, -40, 40);
-            }
-            if (bb && !prevbb && !aa) {
-                samOffset = Range.clip(samOffset - 2.5, -40, 40);
-            }
-
-            // leftdate prev AFTER using them
-            prevaa = aa;
-            prevbb = bb;*/
-            
             finalServoDegrees += visionOffsetDeg + samOffset;
-
-            // 5. Clamp and Set
             finalServoDegrees = Range.clip(finalServoDegrees, 0, 303);
+
             if (gamepad1.ps || gamepad2.ps) {
                 turret1.setPosition(.5);
                 turret2.setPosition(.5);
             } else {
-                turret1.setPosition(finalServoDegrees / 303);
-                turret2.setPosition(finalServoDegrees / 303);
+                turret1.setPosition(finalServoDegrees / 303.0);
+                turret2.setPosition(finalServoDegrees / 303.0);
             }
 
             // =========================================================================
-            //  HOOD LINEAR REGRESSION
+            // HOOD LINEAR REGRESSION
             // =========================================================================
             double hpos;
             if (hypot < 130) {
-                // Zone: Close
                 double d1 = 57.5, d2 = 97.3;
                 double v1 = 0.5, v2 = 0.7;
                 double slope = (v2 - v1) / (d2 - d1);
                 hpos = v1 + (slope * (hypot - d1));
             } else {
-                // Zone: Far
                 double d1 = 136.5, d2 = 158.1;
                 double v1 = 0.7, v2 = 1.0;
                 double slope = (v2 - v1) / (d2 - d1);
@@ -207,29 +223,25 @@ public class stateTeleOpRed extends LinearOpMode {
             hood.setPosition(Range.clip(hpos, 0.5, 1.0));
 
             // =========================================================================
-            //  FLYWHEEL LINEAR REGRESSION
+            // FLYWHEEL LINEAR REGRESSION
             // =========================================================================
             double vTarget;
             if (hypot < 130) {
-                // Zone: Close
                 double d1 = 57.5, d2 = 97.3;
                 double v1 = 1310, v2 = 1660;
                 double slope = (v2 - v1) / (d2 - d1);
                 vTarget = 1150 + (slope * (hypot - d1));
             } else {
-                // Zone: Far
                 double d1 = 136.5, d2 = 158.1;
                 double v1 = 1900, v2 = 1940;
                 double slope = (v2 - v1) / (d2 - d1);
                 vTarget = farSlope + (slope * (hypot - d1));
             }
-            vTarget = Range.clip(vTarget, 0, 2500); // Adjust max based on motor
-
+            vTarget = Range.clip(vTarget, 0, 2500);
 
             if (gamepad1.x) {
                 var = 1;
-            }
-            else if (gamepad1.y) {
+            } else if (gamepad1.y) {
                 var = 0;
             }
 
@@ -241,24 +253,13 @@ public class stateTeleOpRed extends LinearOpMode {
                 f2.setVelocity(0);
             }
 
-
-
-
-
-
-
-
-
-
             // =========================================================================
-            //  INTAKE LOGIC
+            // INTAKE LOGIC
             // =========================================================================
-
             double intakeCmd = (gamepad1.right_trigger + gamepad2.right_trigger) - (gamepad1.left_trigger + gamepad2.left_trigger);
             if (gamepad1.left_bumper || gamepad2.left_bumper) {
                 intakeCmd = 1.0;
-            }
-            else if (gamepad1.right_bumper || gamepad2.right_bumper) {
+            } else if (gamepad1.right_bumper || gamepad2.right_bumper) {
                 intakeCmd = -1.0;
             }
 
@@ -270,37 +271,9 @@ public class stateTeleOpRed extends LinearOpMode {
                 gecko.setPower(0);
             }
 
-
-
-
-
             // =========================================================================
-            //  DRIVE LOGIC
+            // DRIVE LOGIC
             // =========================================================================
-            /*if (gamepad1.a) {
-                if (!emergencyTogglePressed) {
-                    emergencyStopActive = !emergencyStopActive;
-                    emergencyTogglePressed = true;
-                }
-            } else {
-                emergencyTogglePressed = false;
-            }
-            if (emergencyStopActive) {
-                PTO1.setPosition(.9);
-                PTO2.setPosition(.9);
-                lateral = 0;
-                continue;
-            }  else {
-                lateral = -gamepad1.left_stick_x;
-            }
-            if (opModeIsActive()) {
-                PTO1.setPosition(0);
-                PTO2.setPosition(0);
-            }*/
-             axial   = gamepad1.left_stick_y;
-             lateral = -gamepad1.left_stick_x;
-             yawCmd  = -gamepad1.right_stick_x;
-
             double fl = axial + lateral + yawCmd;
             double fr = axial - lateral - yawCmd;
             double bl = axial - lateral + yawCmd;
@@ -313,7 +286,7 @@ public class stateTeleOpRed extends LinearOpMode {
             backRight.setPower(br / max);
 
             // =========================================================================
-            //  ODOMETRY RESET (EXACTLY LIKE OLDER CODE)
+            // ODOMETRY RESET
             // =========================================================================
             if (gamepad1.dpad_up) {
                 pip.setPosition(new Pose2D(DistanceUnit.INCH, -68.02, 28.72, AngleUnit.DEGREES, 91.2));
@@ -327,19 +300,26 @@ public class stateTeleOpRed extends LinearOpMode {
             }
 
             // =========================================================================
-            //  TELEMETRY
+            // TELEMETRY
             // =========================================================================
-
             TelemetryPacket packet = new TelemetryPacket();
             packet.put("farSlope", farSlope);
-
             dashboard.sendTelemetryPacket(packet);
 
+            double leadDistX = vx * timeOfFlight * LEAD_MULTIPLIER;
+            double leadDistY = vy * timeOfFlight * LEAD_MULTIPLIER;
+            double totalLeadInches = Math.sqrt(leadDistX * leadDistX + leadDistY * leadDistY);
 
+            telemetry.addData("Heading Filter Alpha", HEADING_FILTER_ALPHA);
+            telemetry.addData("Raw vHeading", rawVHeading);
+            telemetry.addData("Filtered vHeading", filteredVHeading);
+            telemetry.addData("Feedforward Gain", FEEDFORWARD_GAIN);
+            telemetry.addData("Total Lead (Inches)", totalLeadInches);
             telemetry.addData("Distance (Hypot)", hypot);
             telemetry.addData("Target Velocity", vTarget);
             telemetry.addData("Hood Position", hpos);
             telemetry.addData("Turret Angle (Deg)", finalServoDegrees);
+            telemetry.addData("turret servo 1 pos", turret1.getPosition());
             telemetry.addData("Robot X", robotX);
             telemetry.addData("Robot Y", robotY);
             telemetry.update();
