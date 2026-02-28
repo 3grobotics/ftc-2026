@@ -217,7 +217,7 @@ public class ColorCamera extends LinearOpMode {
                         indexer.setPower(-1);
                         frontIntake.setPower(-1);
                         swingArm.setPosition(0.8);
-                        sleep(100);
+                        sleep(50);
                         swingArm.setPosition(0.9);
                         sleep(100);
                     }

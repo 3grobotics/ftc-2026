@@ -19,17 +19,17 @@ public class intakeSub {
 
     public void loop() {
         // apply commanded power every loop
-        intake.setPower(intakeCmd);
-        gecko.setPower(geckoCmd);
 
         if (loopActive) {
             //ig do loop stuff in here
+            intake.setPower(intakeCmd);
+            gecko.setPower(geckoCmd);
         }
     }
 
     public Runnable IntakeInGeckoOut() {
         return () -> {
-            loopActive = false;
+            loopActive = true;
             intakeCmd = 1;
             geckoCmd  = 1;
         };
@@ -37,7 +37,7 @@ public class intakeSub {
 
     public Runnable intakeOutGeckoIn() {
         return () -> {
-            loopActive = false;
+            loopActive = true;
             intakeCmd = -1;
             geckoCmd  = -1;
         };
@@ -45,7 +45,7 @@ public class intakeSub {
 
     public Runnable intakeInGeckoIn() {
         return () -> {
-            loopActive = false;
+            loopActive = true;
             intakeCmd = 1;
             geckoCmd  = -1;
         };
@@ -53,7 +53,7 @@ public class intakeSub {
 
     public Runnable intakeOutGeckoOut() {
         return () -> {
-            loopActive = false;
+            loopActive = true;
             intakeCmd = -1;
             geckoCmd  = 1;
         };
@@ -61,7 +61,7 @@ public class intakeSub {
 
     public Runnable intakeAndGeckoStop() {
         return () -> {
-            loopActive = false;
+            loopActive = true;
             intakeCmd = 0;
             geckoCmd  = 0;
         };
