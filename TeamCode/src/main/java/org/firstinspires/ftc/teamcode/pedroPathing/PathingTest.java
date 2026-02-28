@@ -57,10 +57,14 @@ public class PathingTest extends LinearOpMode {
     }
 
     private void updateAction() {
-        if (currentAction == null) return;
+        if (currentAction == null) {
+            return;
+        }
         // RR convention: true = keep running, false = finished
         boolean keepRunning = currentAction.run(actionPacket);
-        if (!keepRunning) currentAction = null;
+        if (!keepRunning) {
+            currentAction = null;
+        }
     }
 
     public class Robot {
@@ -104,11 +108,6 @@ public class PathingTest extends LinearOpMode {
         public Action flywheelUp() { return new flywheelUp(); }
     }
 
-
-
-
-
-
     @Override
     public void runOpMode() throws InterruptedException {
         panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
@@ -121,19 +120,7 @@ public class PathingTest extends LinearOpMode {
         intakeSub = new intakeSub(hardwareMap);
         flywheelSub = new flywheelSub(hardwareMap);
 
-
-
         paths = new Paths(follower);
-
-        //intake    = hardwareMap.get(DcMotorEx.class, "intake");
-        //flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
-        //flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
-        //gecko     = hardwareMap.get(DcMotorEx.class, "gecko");
-        //hood      = hardwareMap.get(Servo.class, "hood");
-        //turret1   = hardwareMap.get(Servo.class, "turret");
-        //turret2   = hardwareMap.get(Servo.class, "turret2");
-
-
 
         pathTimer = new Timer();
         actionTimer = new Timer();
@@ -169,9 +156,10 @@ public class PathingTest extends LinearOpMode {
         robot = new Robot();
 
         waitForStart();
-        if (isStopRequested()) return;
+        if (isStopRequested()) {
+            return;
+        }
 
-       // flywheelSub.autoFlywheelFar();
         setPathState(0);
         opmodeTimer.resetTimer();
 
@@ -185,8 +173,6 @@ public class PathingTest extends LinearOpMode {
             double target2 = 0.453;
             hSub.turret1.setPosition(target);
             hSub.turret2.setPosition(target2);
-
-
 
             hSub.flywheel1.setVelocity(flywheel1Vel);
             hSub.flywheel2.setVelocity(flywheel2Vel);
@@ -215,12 +201,12 @@ public class PathingTest extends LinearOpMode {
             case 0:
                 actionTimer.getElapsedTime();
 
-                if (actionTimer.getElapsedTime() > 3000 && actionTimer.getElapsedTime() < 6000) {
+                if (actionTimer.getElapsedTime() > 4000 && actionTimer.getElapsedTime() < 7000) {
                     hSub.intake.setPower(1);
                     hSub.gecko.setPower(-1);
                 }
 
-                if (actionTimer.getElapsedTime() > 6000) {
+                if (actionTimer.getElapsedTime() > 7000 ) {
                     actionTimer.resetTimer();
                     follower.followPath(paths.Path1, true);
                     setPathState(1);
@@ -230,24 +216,24 @@ public class PathingTest extends LinearOpMode {
                 break;
 
             case 1:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     follower.followPath(paths.Path2, true);
                     setPathState(2);
                 }
                 break;
 
             case 2:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     follower.followPath(paths.Path3, true); // (aka RESET)
                     setPathState(3);
                 }
                 break;
 
             case 3:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     follower.followPath(paths.Path4, true);
                     setPathState(4);
-                    actionTimer.resetTimer();   // ✅ START THE PAUSE TIMER WHEN ENTERING STATE 4
+                    actionTimer.resetTimer();
                 }
                 break;
 
@@ -263,63 +249,85 @@ public class PathingTest extends LinearOpMode {
                     follower.resumePathFollowing();
                     follower.followPath(paths.Path5, true);
                     setPathState(5);
-                    actionTimer.resetTimer();   // optional: reset for next timed thing
+                    actionTimer.resetTimer();
                     hSub.intake.setPower(0);
                     hSub.gecko.setPower(0);
                 }
                 break;
 
             case 5:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     follower.followPath(paths.Path6, true);
                     setPathState(6);
                 }
                 break;
 
             case 6:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     follower.followPath(paths.Path7, true);
                     setPathState(7);
                 }
                 break;
 
             case 7:
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.Path8, true);
-                    setPathState(8);
-                    actionTimer.resetTimer();
+                // Wait for Path 7 to completely finish driving back to base (96, 8)
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    actionTimer.resetTimer(); // Start the firing timer NOW
+                    setPathState(8);          // Move to the firing state
                 }
                 break;
 
             case 8:
-
-                follower.pausePathFollowing();
-
+                // The robot is naturally stopped here. No path is running. No pausing required.
                 if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
                     hSub.intake.setPower(1);
                     hSub.gecko.setPower(-1);
                 }
 
                 if (actionTimer.getElapsedTime() > 3000) {
-                    follower.resumePathFollowing();
-                    follower.followPath(paths.Path9, true);
-                    setPathState(9);
-                    actionTimer.resetTimer();   // optional: reset for next timed thing
+                    // Firing is done. NOW we officially start Path 8.
+                    follower.followPath(paths.Path8, true);
+                    setPathState(9); // Move directly to Case 9 to wait for Path 8 to finish
                     hSub.intake.setPower(0);
                     hSub.gecko.setPower(0);
                 }
                 break;
 
             case 9:
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.Path10, true);
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path9, true);
                     setPathState(10);
                 }
                 break;
 
             case 10:
-                if (!follower.isBusy()) {
+                // Wait for Path 9 to finish, then start Path 10
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path10, true);
+                    setPathState(11);
+                }
+                break;
+
+            case 11:
+                // Wait for Path 10 to completely finish driving back to base
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    actionTimer.resetTimer(); // Start the final firing timer NOW
+                    setPathState(12);
+                }
+                break;
+
+            case 12:
+                // The robot is naturally stopped at the end of Path 10. Fire the last elements.
+                if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(-1);
+                }
+
+                if (actionTimer.getElapsedTime() > 3000) {
+                    // Firing is done. End the autonomous routine.
                     setPathState(-1);
+                    hSub.intake.setPower(0);
+                    hSub.gecko.setPower(0);
                 }
                 break;
         }
@@ -327,7 +335,9 @@ public class PathingTest extends LinearOpMode {
 
     public void setPathState(int pState) {
         pathState = pState;
-        if (pathTimer != null) pathTimer.resetTimer();
+        if (pathTimer != null) {
+            pathTimer.resetTimer();
+        }
     }
 
     public static class Paths {
@@ -351,7 +361,7 @@ public class PathingTest extends LinearOpMode {
             Path2 = follower.pathBuilder()
                     .addPath(new BezierLine(new Pose(98.0, 35.0), new Pose(130.0, 35.0)))
                     .addPoseCallback(new Pose(98.0, 35.0, Math.toRadians(0)), intakeSub.IntakeInGeckoOut(), 3.0)
-                    .addParametricCallback(99, intakeSub.intakeAndGeckoStop())
+                    .addParametricCallback(0.99, intakeSub.intakeAndGeckoStop())
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
@@ -368,7 +378,7 @@ public class PathingTest extends LinearOpMode {
             Path5 = follower.pathBuilder()
                     .addPath(new BezierLine(new Pose(100.000, 59.000), new Pose(130.000, 59.000)))
                     .addPoseCallback(new Pose(100, 59, Math.toRadians(0)), intakeSub.IntakeInGeckoOut(), .5)
-                    .addParametricCallback(99, intakeSub.intakeAndGeckoStop())
+                    .addParametricCallback(0.99, intakeSub.intakeAndGeckoStop())
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                     .build();
 
@@ -408,19 +418,18 @@ public class PathingTest extends LinearOpMode {
                     .addPath(
                             new BezierLine(
                                     new Pose(130.000, 27.000),
-                                    new Pose(130.000, 14.000)
+                                    new Pose(130.000, 17.000)
                             )
                     )
                     .addPoseCallback(new Pose(130, 27, Math.toRadians(-63)), intakeSub.IntakeInGeckoOut(), 3.0)
-                    .addParametricCallback(99, intakeSub.intakeAndGeckoStop())
-
+                    .addParametricCallback(0.99, intakeSub.intakeAndGeckoStop())
                     .setLinearHeadingInterpolation(Math.toRadians(-63), Math.toRadians(-90))
                     .build();
 
             Path10 = follower.pathBuilder()
                     .addPath(
                             new BezierCurve(
-                                    new Pose(130.000, 8.000),
+                                    new Pose(130.000, 17.000),
                                     new Pose(116.800, 28.700),
                                     new Pose(96.000, 8.000)
                             )
