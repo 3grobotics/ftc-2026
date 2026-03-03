@@ -29,6 +29,11 @@ repositories {
 
     }
 }
+repositories {
+    maven {
+        url "https://repo.dairy.foundation/releases"
+    }
+}
 
 dependencies {
     implementation project(':FtcRobotController')
@@ -37,4 +42,9 @@ dependencies {
 
     implementation "com.acmerobotics.roadrunner:core:1.0.1"
     implementation "com.acmerobotics.roadrunner:actions:1.0.1"
-}
+    implementation "org.solverslib:core:0.3.4" // core
+    implementation "org.solverslib:pedroPathing:0.3.4" // pedroPathing
+    implementation "org.solverslib:photon:0.3.4" // photon
+
+
+    }

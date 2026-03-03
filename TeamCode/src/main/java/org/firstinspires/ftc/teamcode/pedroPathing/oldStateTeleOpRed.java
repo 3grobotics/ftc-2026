@@ -299,15 +299,8 @@ public class oldStateTeleOpRed extends LinearOpMode {
                 PTO2.setPosition(0);
             }*/
 
-            follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y,   // forward/back
-                    -gamepad1.left_stick_x,   // strafe
-                    -gamepad1.right_stick_x,  // turn
-                    true                       // match LocalizationTest (robot-centric flag in your snippet)
-            );
-            follower.update();
 
-           /*  axial   = gamepad1.left_stick_y;
+             axial   = gamepad1.left_stick_y;
              lateral = -gamepad1.left_stick_x;
              yawCmd  = -gamepad1.right_stick_x;
 
@@ -320,7 +313,7 @@ public class oldStateTeleOpRed extends LinearOpMode {
             frontLeft.setPower(fl / max);
             frontRight.setPower(fr / max);
             backLeft.setPower(bl / max);
-            backRight.setPower(br / max);*/
+            backRight.setPower(br / max);
 
             // =========================================================================
             //  ODOMETRY RESET (EXACTLY LIKE OLDER CODE)
