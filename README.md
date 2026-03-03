@@ -1,18 +1,26 @@
 ## NOTICE
 
-This repository contains the public FTC repository for the 26949 PedroPathing project from the DECODE (2025-2026) competition season.
+This repository contains the *public* FTC repository for the 26949 PedroPathing project from the DECODE (2025-2026) competition season.
 
 ## Welcome!
 This GitHub repository contains the public FTC repository for the 26949 PedroPathing project.  To use this SDK, download/clone the entire project to your local computer.
 
 ## Requirements
-Android Studio Otter
-PedroPathing 2.0.6
-SolversLib 0.3.4
-SolversLib photon 0.3.4
-SolversLib PedroPathing 0.3.4
-at least RoadRunner 1.0.0
-fullpanels 1.0.9
+* Android Studio Otter or higher
+
+* PedroPathing 2.0.6
+
+* SolversLib 0.3.4
+
+* SolversLib photon 0.3.4
+
+* SolversLib PedroPathing 0.3.4
+
+* at least RoadRunner 1.0.0
+
+* fullpanels 1.0.9
+  
+ check the project's Gradle files for more if not included
 
 
 
