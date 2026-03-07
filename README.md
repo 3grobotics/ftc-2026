@@ -1,28 +1,33 @@
 ## NOTICE
 
-This repository contains the public FTC SDK for the DECODE (2025-2026) competition season.
+This repository contains the *public* FTC repository for the 26949 PedroPathing project from the DECODE (2025-2026) competition season.
 
 ## Welcome!
-This GitHub repository contains the source code that is used to build an Android app to control a *FIRST* Tech Challenge competition robot.  To use this SDK, download/clone the entire project to your local computer.
+This GitHub repository contains the public FTC repository for the 26949 PedroPathing project.  To use this SDK, download/clone the entire project to your local computer.
 
 ## Requirements
-To use this Android Studio project, you will need Android Studio Ladybug (2024.2) or later.
+* Android Studio Otter or higher
 
-To program your robot in Blocks or OnBot Java, you do not need Android Studio.
+* PedroPathing 2.0.6
 
-## Getting Started
-If you are new to robotics or new to the *FIRST* Tech Challenge, then you should consider reviewing the [FTC Blocks Tutorial](https://ftc-docs.firstinspires.org/programming_resources/blocks/Blocks-Tutorial.html) to get familiar with how to use the control system:
+* SolversLib 0.3.4
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[FTC Blocks Online Tutorial](https://ftc-docs.firstinspires.org/programming_resources/blocks/Blocks-Tutorial.html)
+* SolversLib photon 0.3.4
 
-Even if you are an advanced Java programmer, it is helpful to start with the [FTC Blocks tutorial](https://ftc-docs.firstinspires.org/programming_resources/blocks/Blocks-Tutorial.html), and then migrate to the [OnBot Java Tool](https://ftc-docs.firstinspires.org/programming_resources/onbot_java/OnBot-Java-Tutorial.html) or to [Android Studio](https://ftc-docs.firstinspires.org/programming_resources/android_studio_java/Android-Studio-Tutorial.html) afterwards.
+* SolversLib PedroPathing 0.3.4
+
+* at least RoadRunner 1.0.0
+
+* fullpanels 1.0.9
+  
+ check the project's Gradle files for more if not included
+
+
 
 ## Downloading the Project
 If you are an Android Studio programmer, there are several ways to download this repo.  Note that if you use the Blocks or OnBot Java Tool to program your robot, then you do not need to download this repository.
 
 * If you are a git user, you can clone the most current version of the repository:
-
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;git clone https://github.com/FIRST-Tech-Challenge/FtcRobotController.git</p>
 
 * Or, if you prefer, you can use the "Download Zip" button available through the main repository page.  Downloading the project as a .ZIP file will keep the size of the download manageable.
 
