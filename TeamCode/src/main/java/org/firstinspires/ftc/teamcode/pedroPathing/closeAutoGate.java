@@ -29,6 +29,7 @@ import org.firstinspires.ftc.teamcode.Subsystems.hardwareSub;
 import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +55,9 @@ public class closeAutoGate extends LinearOpMode {
     public static double aimOffsetDeg = 0.0;    // extra global trim
     public static double samOffset = 5.0;       // teleop-style trim
     public static double visionOffsetDeg = 0.0; // future LL correction if desired
+    boolean state4 = false;
+    boolean state6 = false;
+    boolean state8 = false;
 
     @Override
     public void runOpMode() {
@@ -184,15 +188,15 @@ public class closeAutoGate extends LinearOpMode {
             while (calculatedTurretRad > Math.PI) calculatedTurretRad -= 2 * Math.PI;
             while (calculatedTurretRad < -Math.PI) calculatedTurretRad += 2 * Math.PI;
 
-            // 2. Convert to Degrees and apply center offset
-            double finalServoDegrees = Math.toDegrees(calculatedTurretRad) + 151.5;
+            // 2. Convert to Degrees and apply center offset (202 deg for a 404 range)
+            double finalServoDegrees = Math.toDegrees(calculatedTurretRad) + 202;
 
             // 4. Combine Physics + Vision
             finalServoDegrees += visionOffsetDeg + samOffset + aimOffsetDeg;
 
             // 5. Clamp and Set
-            finalServoDegrees = Range.clip(finalServoDegrees, 0, 303);
-            double turretPos = finalServoDegrees / 303.0;
+            finalServoDegrees = Range.clip(finalServoDegrees, 0, 404);
+            double turretPos = finalServoDegrees / 404;
             hSub.turret1.setPosition(turretPos);
             hSub.turret2.setPosition(turretPos);
 
@@ -424,6 +428,23 @@ public class closeAutoGate extends LinearOpMode {
             return farSlope + (slope * (distance - d1));
         }
     }
+    /*Command intakeAndGeckoIn = new LambdaCommand()
+            .setStart(() -> {
+                hSub.intake.setPower(1);
+                hSub.gecko.setPower(-1);
+            })
+            .setUpdate(() -> {
+                hSub.intake.setPower(1);
+                hSub.gecko.setPower(-1);
+            })
+            .setStop(interrupted -> {
+                hSub.intake.setPower(0);
+                hSub.gecko.setPower(0);
+            })
+            .setIsDone(() -> true) // Returns if the command has finished
+            //.requires(hSub)
+            //.setInterruptible(true)
+            .named("My Command"); // sets the name of the command; optional*/
 
     public void autonomousPathUpdate() {
         switch (pathState) {
@@ -491,12 +512,15 @@ public class closeAutoGate extends LinearOpMode {
                 if (!follower.isBusy()) {
                     follower.pausePathFollowing();
 
-                    if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
-                        hSub.intake.setPower(1);
-                        hSub.gecko.setPower(1);
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(1);
+
+
+                    if(actionTimer.getElapsedTime() > 4000){
+                        state4 = true;
                     }
 
-                    if (actionTimer.getElapsedTime() > 2000) {
+                    if (state4) {
                         follower.resumePathFollowing();
                         follower.followPath(paths.Path4, true);
                         setPathState(5);
@@ -514,7 +538,7 @@ public class closeAutoGate extends LinearOpMode {
                         hSub.gecko.setPower(-1);
                     }
 
-                    if (actionTimer.getElapsedTime() > 3000) {
+                    if (actionTimer.getElapsedTime() > 3500) {
                         follower.resumePathFollowing();
                         follower.followPath(paths.Path5, .8,true);
                         setPathState(6);
@@ -529,12 +553,14 @@ public class closeAutoGate extends LinearOpMode {
                 if (!follower.isBusy()) {
                     follower.pausePathFollowing();
 
-                    if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
-                        hSub.intake.setPower(1);
-                        hSub.gecko.setPower(1);
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(1);
+
+                    if(actionTimer.getElapsedTime() > 4000){
+                        state6 = true;
                     }
 
-                    if (actionTimer.getElapsedTime() > 2000) {
+                    if (state6) {
                         follower.resumePathFollowing();
                         follower.followPath(paths.Path6, true);
                         setPathState(7);
@@ -547,12 +573,17 @@ public class closeAutoGate extends LinearOpMode {
                 if (!follower.isBusy()) {
                     follower.pausePathFollowing();
 
-                    if (actionTimer.getElapsedTime() > 1000 && actionTimer.getElapsedTime() < 3000) {
+                    if (actionTimer.getElapsedTime() > 1) {
                         hSub.intake.setPower(1);
                         hSub.gecko.setPower(-1);
+                       /* new SequentialGroup(
+                                hSub.intake.setPower(1),
+                                hSub.gecko.setPower(-1),
+                                new Delay(1)
+                        );*/
                     }
 
-                    if (actionTimer.getElapsedTime() > 3000) {
+                    if (actionTimer.getElapsedTime() > 3500) {
                         follower.resumePathFollowing();
                         follower.followPath(paths.Path7, .8,true);
                         setPathState(8);
@@ -564,11 +595,22 @@ public class closeAutoGate extends LinearOpMode {
                 break;
 
             case 8:
-                // Wait for Path 7 to completely finish driving back to base (96, 8)
-                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
-                    follower.followPath(paths.Path8, true); // (aka RESET)
-                    setPathState(9);
-                    actionTimer.resetTimer();
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    hSub.intake.setPower(1);
+                    hSub.gecko.setPower(1);
+
+                    if(actionTimer.getElapsedTime() > 4000){
+                        state8 = true;
+                    }
+
+                    if (state8) {
+                        follower.resumePathFollowing();
+                        follower.followPath(paths.Path8, true);
+                        setPathState(9);
+                        actionTimer.resetTimer();
+                    }
                 }
                 break;
 

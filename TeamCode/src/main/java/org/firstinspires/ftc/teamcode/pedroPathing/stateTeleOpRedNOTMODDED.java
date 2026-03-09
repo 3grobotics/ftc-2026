@@ -129,29 +129,30 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
             double hypot = Math.sqrt((xl * xl) + (yl * yl));
 
             // =========================================================================
-            //  TURRET APPLICATION (EXACTLY LIKE OLDER CODE)
+            //  TURRET APPLICATION (UNWRAPPING BOUNDARY FIX)
             // =========================================================================
             double angleToGoal = Math.atan2(yl, xl);
             double robotHeading = pip.getHeading(AngleUnit.RADIANS);
 
-            // Base Turret Angle Calculation
-            double calculatedTurretRad = angleToGoal - robotHeading;
+            // Absolute target angle relative to the robot chassis
+            double targetTurretRad = angleToGoal - robotHeading;
 
-            // 1. Wrap angle (-180 to 180)
-            while (calculatedTurretRad > Math.PI) calculatedTurretRad -= 2 * Math.PI;
-            while (calculatedTurretRad < -Math.PI) calculatedTurretRad += 2 * Math.PI;
+            // 1. The "Unwrap" Boundary (-180 to 180)
+            // If the target crosses the back of the robot (>180 deg), it subtracts 360 deg.
+            // This forces the turret to turn clockwise to catch it on the other side.
+            while (targetTurretRad > Math.PI) targetTurretRad -= 2 * Math.PI;
+            while (targetTurretRad < -Math.PI) targetTurretRad += 2 * Math.PI;
 
-            // 2. Convert to Degrees and apply center offset (159 deg from comment)
-            double finalServoDegrees = Math.toDegrees(calculatedTurretRad) + 151.5;
+            // 2. Convert to Degrees and apply center offset (202 deg for a 404 range)
+            double baseServoDegrees = Math.toDegrees(targetTurretRad) + 202;
 
-            // 4. Combine Physics + Vision
-             left = gamepad2.dpad_left;
-             right = gamepad2.dpad_right;
+            // 3. Combine Gamepad Logic + Vision + samOffset
+            left = gamepad2.dpad_left;
+            right = gamepad2.dpad_right;
 
             aa = gamepad2.a;
             bb = gamepad2.b;
-            
-            
+
             if (left && !prevleft && !right) {
                 samOffset = Range.clip(samOffset + 2.5, -40, 40);
             }
@@ -159,7 +160,7 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
                 samOffset = Range.clip(samOffset - 2.5, -40, 40);
             }
 
-            // leftdate prev AFTER using them
+            // update prev AFTER using them
             prevleft = left;
             prevright = right;
 
@@ -170,20 +171,20 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
                 samOffset = Range.clip(samOffset - 2.5, -40, 40);
             }
 
-            // leftdate prev AFTER using them
             prevaa = aa;
             prevbb = bb;*/
-            
-            finalServoDegrees += visionOffsetDeg + samOffset;
 
-            // 5. Clamp and Set
-            finalServoDegrees = Range.clip(finalServoDegrees, 0, 303);
+            double finalServoDegrees = baseServoDegrees + visionOffsetDeg + samOffset;
+
+            // 4. Clamp and Set
+            finalServoDegrees = Range.clip(finalServoDegrees, 0, 404);
+
             if (gamepad1.ps || gamepad2.ps) {
-                turret1.setPosition(.5);
-                turret2.setPosition(.5);
+                turret1.setPosition(0.5);
+                turret2.setPosition(0.5);
             } else {
-                turret1.setPosition(finalServoDegrees / 303);
-                turret2.setPosition(finalServoDegrees / 303);
+                turret1.setPosition(finalServoDegrees / 404.0);
+                turret2.setPosition(finalServoDegrees / 404.0);
             }
 
             // =========================================================================
