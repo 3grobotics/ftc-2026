@@ -12,8 +12,22 @@
 // Custom definitions may go here
 
 // Include common definitions from above.
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://repo.dairy.foundation/releases"
+        }
+    }
+    dependencies {
+        classpath "dev.frozenmilk:Load:0.2.4"
+    }
+}
+
 apply from: '../build.common.gradle'
 apply from: '../build.dependencies.gradle'
+apply plugin: 'dev.frozenmilk.sinister.sloth.load'
+
 
 android {
     namespace = 'org.firstinspires.ftc.teamcode'
@@ -48,6 +62,8 @@ dependencies {
     implementation "org.solverslib:photon:0.3.4" // photon
     implementation 'dev.nextftc:ftc:1.0.1'
     implementation 'dev.nextftc:hardware:1.0.1' // If you would like to use the hardware module
+    implementation("dev.frozenmilk.sinister:Sloth:0.2.4")
+    implementation("com.bylazar.sloth:fullpanels:0.2.4+1.0.12")
 
 
     }

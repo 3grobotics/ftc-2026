@@ -144,7 +144,7 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
             while (targetTurretRad < -Math.PI) targetTurretRad += 2 * Math.PI;
 
             // 2. Convert to Degrees and apply center offset (202 deg for a 404 range)
-            double baseServoDegrees = Math.toDegrees(targetTurretRad) + 202;
+            double baseServoDegrees = Math.toDegrees(targetTurretRad) + 151.5;
 
             // 3. Combine Gamepad Logic + Vision + samOffset
             left = gamepad2.dpad_left;
@@ -177,14 +177,14 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
             double finalServoDegrees = baseServoDegrees + visionOffsetDeg + samOffset;
 
             // 4. Clamp and Set
-            finalServoDegrees = Range.clip(finalServoDegrees, 0, 404);
+            finalServoDegrees = Range.clip(finalServoDegrees, 0, 303);
 
             if (gamepad1.ps || gamepad2.ps) {
                 turret1.setPosition(0.5);
                 turret2.setPosition(0.5);
             } else {
-                turret1.setPosition(finalServoDegrees / 404.0);
-                turret2.setPosition(finalServoDegrees / 404.0);
+                turret1.setPosition(finalServoDegrees / 303);
+                turret2.setPosition(finalServoDegrees / 303);
             }
 
             // =========================================================================
