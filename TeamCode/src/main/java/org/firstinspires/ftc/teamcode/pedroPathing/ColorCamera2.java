@@ -17,6 +17,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSub;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.varSub;
@@ -165,7 +166,7 @@ public class ColorCamera2 extends LinearOpMode {
         telemetry.setMsTransmissionInterval(50);
         telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE); }
 
-        /* booleans that have to be here */ {
+        /* booleans that have to be here */
         boolean left = gamepad2.dpad_left;
         boolean right = gamepad2.dpad_right;
         boolean prevleft = left;
@@ -174,13 +175,9 @@ public class ColorCamera2 extends LinearOpMode {
         boolean aa = gamepad2.a;
         boolean bb = gamepad2.b;
         boolean prevaa = aa;
-        boolean prevbb = bb;}
+        boolean prevbb = bb;
         waitForStart();
-        while (opModeIsActive() || opModeInInit()) {
-
-            /* telemetry init message */
-            telemetry.addLine("Preview on/off: 3 dots, Camera Stream");
-            telemetry.addLine("");
+        while (opModeIsActive()) {
             // Request the most recent color analysis.
             // This will return the closest matching colorSwatch and the predominant color in RGB, HSV and YCrCb color spaces.
             //frontResult = frontPredominantColorProcessor.getAnalysis();
@@ -195,13 +192,13 @@ public class ColorCamera2 extends LinearOpMode {
                 h.gate.setPosition(0.65);
             }
 
-            if (gamepad1.a) {
+            /*if (gamepad1.a) {
                 h.swingArm.setPosition(0.5);
             } else if (gamepad1.b) {
                 h.swingArm.setPosition(0.2);
             } else if (gamepad2.x) {
                 h.swingArm.setPosition(0.9);
-            }
+            }*/
 
             if (gamepad1.dpad_up) {
                 h.gate.setPosition(1);
@@ -261,15 +258,15 @@ public class ColorCamera2 extends LinearOpMode {
                 h.indexer.setPower(-1);
                 h.intake.setPower(-1);
 
-                if (swingTimer.getElapsedTime() >= 50) {
+                if (swingTimer.getElapsedTime() >= 100) {
                     v.swingHigh = !v.swingHigh;
                     swingTimer.resetTimer();
                 }
 
                 if (v.swingHigh) {
-                    h.swingArm.setPosition(0.9);
+                    h.swingArm.setPosition(1);
                 } else {
-                    h.swingArm.setPosition(0.8);
+                    h.swingArm.setPosition(.7);
                 }
 
             } else {
@@ -441,7 +438,7 @@ public class ColorCamera2 extends LinearOpMode {
 
             h.pip.update(); // leftdate position first!
 
-            /*double robotX = h.pip.getPosX(DistanceUnit.INCH);
+            double robotX = h.pip.getPosX(DistanceUnit.INCH);
             double robotY = h.pip.getPosY(DistanceUnit.INCH);
 
             double xl = v.tx - robotX;
@@ -455,7 +452,7 @@ public class ColorCamera2 extends LinearOpMode {
             double robotHeading = h.pip.getHeading(AngleUnit.RADIANS);
 
             // Absolute target angle relative to the robot chassis
-            double targetTurretRad = angleToGoal - robotHeading;
+            double targetTurretRad = (angleToGoal - robotHeading);
 
             // 1. The "Unwrap" Boundary (-180 to 180)
             // If the target crosses the back of the robot (>180 deg), it subtracts 360 deg.
@@ -484,11 +481,11 @@ public class ColorCamera2 extends LinearOpMode {
             prevleft = left;
             prevright = right;
 
-            /*if (aa && !prevaa && !bb) {
-                samOffset = Range.clip(samOffset + 2.5, -40, 40);
+            if (aa && !prevaa && !bb) {
+                v.samOffset = Range.clip(v.samOffset + 2.5, -40, 40);
             }
             if (bb && !prevbb && !aa) {
-                samOffset = Range.clip(samOffset - 2.5, -40, 40);
+                v.samOffset = Range.clip(v.samOffset - 2.5, -40, 40);
             }
 
             prevaa = aa;
@@ -505,10 +502,22 @@ public class ColorCamera2 extends LinearOpMode {
             } else {
                 h.turret1.setPosition(finalServoDegrees / 303);
                 h.turret2.setPosition(finalServoDegrees / 303);
+            }
+
+
+            if (gamepad1.dpad_up) {
+                h.pip.setPosition(new Pose2D(DistanceUnit.INCH, -68.02, 28.72, AngleUnit.DEGREES, 91.2));
+                v.samOffset = 0;
+            } else if (gamepad1.dpad_down) {
+                h.pip.resetPosAndIMU();
+                v.samOffset = 0;
+            }/* else if (gamepad1.dpad_left){
+                h.pip.setPosition(new Pose2D(DistanceUnit.INCH, 62, -65, AngleUnit.DEGREES, 0));
+                v.samOffset = 0;
             }*/
 
 
-            /*// =========================================================================
+            // =========================================================================
             //  HOOD LINEAR REGRESSION
             // =========================================================================
             double hpos;
@@ -525,12 +534,12 @@ public class ColorCamera2 extends LinearOpMode {
                 double slope = (v2 - v1) / (d2 - d1);
                 hpos = v1 + (slope * (hypot - d1));
             }
-            h.hood.setPosition(Range.clip(hpos, 0.5, 1.0));*/
+            h.hood.setPosition(Range.clip(hpos, 0.5, 1.0));
 
             // =========================================================================
             //  FLYWHEEL LINEAR REGRESSION
             // =========================================================================
-            /*double vTarget;
+            double vTarget;
             if (hypot < 130) {
                 // Zone: Close
                 double d1 = 57.5, d2 = 97.3;
@@ -544,7 +553,7 @@ public class ColorCamera2 extends LinearOpMode {
                 double slope = (v2 - v1) / (d2 - d1);
                 vTarget = farSlope + (slope * (hypot - d1));
             }
-            vTarget = Range.clip(vTarget, 0, 2500); // Adjust max based on motor*/
+            vTarget = Range.clip(vTarget, 0, 2500); // Adjust max based on motor
 
 
             /* flywheel turn on/off */ {
@@ -556,10 +565,10 @@ public class ColorCamera2 extends LinearOpMode {
             }
 
             if (v.var == 1) {
-                h.flywheel1.setPower(1);
-                h.flywheel2.setPower(1);
-               //h.flywheel1.setVelocity(vTarget);
-               //h.flywheel2.setVelocity(vTarget);
+                //  h.flywheel1.setPower(1);
+               //h.flywheel2.setPower(1);
+                h.flywheel1.setVelocity(vTarget);
+                h.flywheel2.setVelocity(vTarget);
             } else {
                 h.flywheel1.setVelocity(0);
                 h.flywheel2.setVelocity(0);
@@ -591,28 +600,25 @@ public class ColorCamera2 extends LinearOpMode {
             }*/
 
             /* PTO */ {
-            if (gamepad2.a || gamepad1.options && !bPressed) {
-                ptoState = (ptoState + 1) % 2;
-                bPressed = true;
-            } else if (!gamepad2.a || !gamepad1.options) {
-                bPressed = false;
+                if (gamepad1.options && !bPressed) {
+                    ptoState = (ptoState + 1) % 2;
+                    bPressed = true;
+                } else if (!gamepad1.options) {
+                    bPressed = false;
+                }
+
+                switch (ptoState) {
+                    case 0:
+                        h.ptoR.setPosition(.8);
+                        h.ptoL.setPosition(.8);
+                        break;
+
+                    case 1:
+                        h.ptoR.setPosition(0.3);
+                        h.ptoL.setPosition(0.3);
+                        break;
+                }
             }
-         /*   if (gamepad1.right_bumper && gamepad1.left_bumper && !dPressed) {
-                ptoState = (ptoState + 1) % 2;
-                dPressed = true;
-            } else if (!gamepad2.dpad_up) {
-                dPressed = false;
-            }*/
-            switch (ptoState){
-                case 0:
-                    h.ptoR.setPosition(1.0);
-                    h.ptoL.setPosition(1.0);
-                    break;
-                case 1:
-                    h.ptoR.setPosition(0.5);
-                    h.ptoL.setPosition(0.5);
-                    break;
-            } }
 
             //telemetry.addData("Best Match front", frontResult.closestSwatch);
             //telemetry.addData("Best Match middle", middleResult.closestSwatch);
