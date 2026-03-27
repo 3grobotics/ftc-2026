@@ -20,6 +20,9 @@ public class setServo0point5 extends LinearOpMode {
         h = hardwareMap.get(Servo.class,"hood");
         h.setDirection(Servo.Direction.REVERSE);
         t1.setDirection(Servo.Direction.REVERSE);
+        t2.setDirection(Servo.Direction.REVERSE);
+
+
 
         waitForStart();
 

@@ -436,7 +436,7 @@ public class ColorCamera2 extends LinearOpMode {
                 h.indexer.setPower(0);
             }*/
 
-            h.pip.update(); // leftdate position first!
+            h.pip.update();
 
             double robotX = h.pip.getPosX(DistanceUnit.INCH);
             double robotY = h.pip.getPosY(DistanceUnit.INCH);
@@ -452,18 +452,17 @@ public class ColorCamera2 extends LinearOpMode {
             double robotHeading = h.pip.getHeading(AngleUnit.RADIANS);
 
             // Absolute target angle relative to the robot chassis
-            double targetTurretRad = (angleToGoal - robotHeading);
+            // ADDED + Math.PI here to invert the facing direction by 180 degrees
+            double targetTurretRad = angleToGoal - robotHeading + Math.PI;
 
-            // 1. The "Unwrap" Boundary (-180 to 180)
-            // If the target crosses the back of the robot (>180 deg), it subtracts 360 deg.
-            // This forces the turret to turn clockwise to catch it on the other side.
+            // unwrap to [-pi, pi]
             while (targetTurretRad > Math.PI) targetTurretRad -= 2 * Math.PI;
             while (targetTurretRad < -Math.PI) targetTurretRad += 2 * Math.PI;
 
-            // 2. Convert to Degrees and apply center offset (202 deg for a 404 range)
-            double baseServoDegrees = Math.toDegrees(targetTurretRad) + 151.5;
+            // Convert to degrees and apply center offset
+            double baseServoDegrees = Math.toDegrees(targetTurretRad) - (337.25 / 2.0);
 
-            // 3. Combine Gamepad Logic + Vision + samOffset
+            // Gamepad trim logic
             left = gamepad2.dpad_left;
             right = gamepad2.dpad_right;
 
@@ -477,7 +476,6 @@ public class ColorCamera2 extends LinearOpMode {
                 v.samOffset = Range.clip(v.samOffset - 2.5, -40, 40);
             }
 
-            // update prev AFTER using them
             prevleft = left;
             prevright = right;
 
@@ -493,20 +491,18 @@ public class ColorCamera2 extends LinearOpMode {
 
             double finalServoDegrees = baseServoDegrees + v.visionOffsetDeg + v.samOffset;
 
-            // 4. Clamp and Set
-            finalServoDegrees = Range.clip(finalServoDegrees, 0, 303);
+            //finalServoDegrees = Range.clip(finalServoDegrees, 0, 337.25);
 
             if (gamepad1.ps || gamepad2.ps) {
                 h.turret1.setPosition(0.5);
                 h.turret2.setPosition(0.5);
             } else {
-                h.turret1.setPosition(finalServoDegrees / 303);
-                h.turret2.setPosition(finalServoDegrees / 303);
+                h.turret1.setPosition(Math.abs((finalServoDegrees) / 337.25));
+                h.turret2.setPosition(Math.abs((finalServoDegrees) / 337.25));
             }
 
-
             if (gamepad1.dpad_up) {
-                h.pip.setPosition(new Pose2D(DistanceUnit.INCH, -68.02, 28.72, AngleUnit.DEGREES, 91.2));
+                h.pip.setPosition(new Pose2D(DistanceUnit.INCH, -68.02, 36, AngleUnit.DEGREES,  180));
                 v.samOffset = 0;
             } else if (gamepad1.dpad_down) {
                 h.pip.resetPosAndIMU();
@@ -520,39 +516,41 @@ public class ColorCamera2 extends LinearOpMode {
             // =========================================================================
             //  HOOD LINEAR REGRESSION
             // =========================================================================
-            double hpos;
-            if (hypot < 130) {
+            {
+                double hpos;
+                //if (hypot < 130) {
                 // Zone: Close
-                double d1 = 57.5, d2 = 97.3;
-                double v1 = 0.5, v2 = 0.7;
+                double d1 = 57.5, d2 = 83.5;
+                double v1 = .6, v2 = .4;
                 double slope = (v2 - v1) / (d2 - d1);
                 hpos = v1 + (slope * (hypot - d1));
-            } else {
+            /*} else {
                 // Zone: Far
                 double d1 = 136.5, d2 = 158.1;
                 double v1 = 0.7, v2 = 1.0;
                 double slope = (v2 - v1) / (d2 - d1);
                 hpos = v1 + (slope * (hypot - d1));
+            }*/
+                h.hood.setPosition(Range.clip(hpos, 0, .6));
             }
-            h.hood.setPosition(Range.clip(hpos, 0.5, 1.0));
 
             // =========================================================================
             //  FLYWHEEL LINEAR REGRESSION
             // =========================================================================
             double vTarget;
-            if (hypot < 130) {
+           // if (hypot < 130) {
                 // Zone: Close
-                double d1 = 57.5, d2 = 97.3;
-                double v1 = 1310, v2 = 1660;
+                double d1 = 57.5, d2 = 83.5;
+                double v1 = 1550, v2 = 1900;
                 double slope = (v2 - v1) / (d2 - d1);
-                vTarget = 1150 + (slope * (hypot - d1));
-            } else {
+                vTarget = 1400 + (slope * (hypot - d1));
+          /*  } else {
                 // Zone: Far
                 double d1 = 136.5, d2 = 158.1;
                 double v1 = 1900, v2 = 1940;
                 double slope = (v2 - v1) / (d2 - d1);
                 vTarget = farSlope + (slope * (hypot - d1));
-            }
+            }*/
             vTarget = Range.clip(vTarget, 0, 2500); // Adjust max based on motor
 
 
@@ -567,8 +565,8 @@ public class ColorCamera2 extends LinearOpMode {
             if (v.var == 1) {
                 //  h.flywheel1.setPower(1);
                //h.flywheel2.setPower(1);
-                h.flywheel1.setVelocity(vTarget);
-                h.flywheel2.setVelocity(vTarget);
+                h.flywheel1.setVelocity((vTarget * 37.333) / 60);
+                h.flywheel2.setVelocity((vTarget * 37.333) / 60);
             } else {
                 h.flywheel1.setVelocity(0);
                 h.flywheel2.setVelocity(0);
@@ -626,6 +624,24 @@ public class ColorCamera2 extends LinearOpMode {
             //telemetry.addLine("RGB   (" + JavaUtil.formatNumber(frontResult.RGB[0], 3, 0) + ", " + JavaUtil.formatNumber(frontResult.RGB[1], 3, 0) + ", " + JavaUtil.formatNumber(frontResult.RGB[2], 3, 0) + ")");
             //telemetry.addLine("HSV   (" + JavaUtil.formatNumber(frontResult.HSV[0], 3, 0) + ", " + JavaUtil.formatNumber(frontResult.HSV[1], 3, 0) + ", " + JavaUtil.formatNumber(frontResult.HSV[2], 3, 0) + ")");
             //telemetry.addLine("YCrCb (" + JavaUtil.formatNumber(frontResult.YCrCb[0], 3, 0) + ", " + JavaUtil.formatNumber(frontResult.YCrCb[1], 3, 0) + ", " + JavaUtil.formatNumber(frontResult.YCrCb[2], 3, 0) + ")");
+
+            telemetry.addData("x leg", xl);
+            telemetry.addData("y leg", yl);
+            telemetry.addData("hypot", hypot);
+            telemetry.addData("RPM flywheel 1", "%.3f", ((h.flywheel1.getVelocity() * 60) / 37.333));
+            telemetry.addData("RPM flywheel 2", "%.3f", ((h.flywheel2.getVelocity() * 60) / 37.333));
+            telemetry.addData("vel ticks flywheel 1", "%.3f", (h.flywheel1.getVelocity()));
+            telemetry.addData("vel ticks flywheel 2", "%.3f", (h.flywheel2.getVelocity()));
+            telemetry.addData("pip x in", h.pip.getPosX(DistanceUnit.INCH));
+            telemetry.addData("heading",  h.pip.getHeading(AngleUnit.DEGREES));
+            telemetry.addData("pip y in", h.pip.getPosY(DistanceUnit.INCH));
+            telemetry.addData("turret1", h.turret1.getPosition());
+            telemetry.addData("turret2", h.turret2.getPosition());
+            telemetry.addData("finalServoDegrees",  finalServoDegrees);
+            telemetry.addData("baseServoDegrees",  baseServoDegrees);
+
+
+
             telemetry.update();
         }
     }
