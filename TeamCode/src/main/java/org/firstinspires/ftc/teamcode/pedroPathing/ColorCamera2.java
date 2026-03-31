@@ -227,17 +227,18 @@ public class ColorCamera2 extends LinearOpMode {
 
             /* cycles once */ {
             if (gamepad1.dpad_left) {
-                h.sickle.setPosition(0.9);
+                h.sickle.setPosition(0.85);
                 h.swingArm.setPosition(0.5);
-                h.gate.setPosition(0.9);
+                h.gate.setPosition(0.82);
                 sleep(250);
                 h.intake.setPower(-1);
                 h.indexer.setPower(-1);
-                sleep(500);
+                sleep(250);
+                h.sickle.setPosition(0.9);
+                sleep(250);
                 h.gate.setPosition(0.85);
                 h.swingArm.setPosition(0.2);
                 h.intake.setPower(0);
-                h.indexer.setPower(0);
                 sleep(250);
                 h.intake.setPower(0.5);
                 h.indexer.setPower(-1);
@@ -266,7 +267,7 @@ public class ColorCamera2 extends LinearOpMode {
                 if (v.swingHigh) {
                     h.swingArm.setPosition(1);
                 } else {
-                    h.swingArm.setPosition(.7);
+                    h.swingArm.setPosition(.8);
                 }
 
             } else {
@@ -612,8 +613,8 @@ public class ColorCamera2 extends LinearOpMode {
                         break;
 
                     case 1:
-                        h.ptoR.setPosition(0.3);
-                        h.ptoL.setPosition(0.3);
+                        h.ptoR.setPosition(0.25);
+                        h.ptoL.setPosition(.3);
                         break;
                 }
             }
