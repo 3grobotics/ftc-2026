@@ -38,11 +38,12 @@ public class hardwareSubNewBot {
         frontLeft = hardwareMap.get(DcMotorEx.class, "frontLeft");
         swingArm = hardwareMap.get(Servo.class, "swingArm");
         topDistSensor = hardwareMap.get(DigitalChannel.class, "topDistSensor");
+        midDistSensor = hardwareMap.get(DigitalChannel.class, "midDistSensor");
+        frontDistSensor = hardwareMap.get(DigitalChannel.class, "frontDistSensor");
         sickle = hardwareMap.get(Servo.class, "sickle");
         gate = hardwareMap.get(Servo.class, "gate");
         indexer = hardwareMap.get(DcMotorEx.class, "indexer");
-        midDistSensor = hardwareMap.get(DigitalChannel.class, "midDistSensor");
-        frontDistSensor = hardwareMap.get(DigitalChannel.class, "frontDistSensor");
+
 
 
         frontLeft.setDirection(DcMotorEx.Direction.FORWARD);
