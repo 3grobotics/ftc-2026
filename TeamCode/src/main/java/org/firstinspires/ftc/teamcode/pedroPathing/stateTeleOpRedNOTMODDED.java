@@ -86,7 +86,7 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
         //Pose2d savedPose = PoseStorage.currentPose;
         //// 3. FORCE THE HARDWARE TO THE CORRECT SPOT
         //// This overwrites whatever "wrong" numbers the hardware has
-        //if (savedPose.position.x == 0 && savedPose.position.y == 0 && savedPose.heading.toDouble() == 0) {
+        //if (savedPose.position.x == 0 && savedPose.position.goalHeight == 0 && savedPose.heading.toDouble() == 0) {
         //    // Case: We didn't run Auto (or it crashed), so assume start of match
         //    // You might want to change this to your known start pose if testing teleop alone
         //    // odo.resetPosAndIMU();
@@ -112,7 +112,7 @@ public class stateTeleOpRedNOTMODDED extends LinearOpMode {
         //pip.setPosition(new Pose2D(
         //        DistanceUnit.INCH,
         //        savedPose.position.x,
-        //        savedPose.position.y,
+        //        savedPose.position.goalHeight,
         //        AngleUnit.RADIANS,
         //        savedPose.heading.toDouble()
         //));

@@ -91,77 +91,57 @@ public class ColorCamera2WithLL extends LinearOpMode {
 
         /* this is the camera stuff */
         PredominantColorProcessor.Builder frontProcessorBuilder;
-        //PredominantColorProcessor.Builder middleProcessorBuilder;
         PredominantColorProcessor.Builder backProcessorBuilder;
         VisionPortal.Builder myVisionPortalBuilder;
         PredominantColorProcessor frontPredominantColorProcessor;
-        PredominantColorProcessor middlePredominantColorProcessor;
         PredominantColorProcessor backPredominantColorProcessor;
         VisionPortal myVisionPortal;
         PredominantColorProcessor.Result frontResult;
-        //PredominantColorProcessor.Result middleResult;
         PredominantColorProcessor.Result backResult;
 
 
         // Build a "Color Sensor" vision processor based on the PredominantColorProcessor class.
         frontProcessorBuilder = new PredominantColorProcessor.Builder();
-       // middleProcessorBuilder = new PredominantColorProcessor.Builder();
         backProcessorBuilder = new PredominantColorProcessor.Builder();
-        // - Focus the color sensor by defining a RegionOfInterest (ROI) which you want to inspect.
-        //     This can be the entire frame, or a sub-region defined using:
-        //     1) standard image coordinates or 2) a normalized +/- 1.0 coordinate system.
-        //     Use one form of the ImageRegion class to define the ROI.
-        // 100x100 pixel square near the upper left corner
+        /* - Focus the color sensor by defining a RegionOfInterest (ROI) which you want to inspect.
+             This can be the entire frame, or a sub-region defined using:
+             1) standard image coordinates or 2) a normalized +/- 1.0 coordinate system.
+             Use one form of the ImageRegion class to define the ROI.
+         100x100 pixel square near the upper left corner*/
         frontProcessorBuilder.setRoi(ImageRegion.asImageCoordinates(
                 80,
                 200,
                 250,
                 400));
-       // middleProcessorBuilder.setRoi(ImageRegion.asImageCoordinates(300, 100, 400, 300));
-        backProcessorBuilder.setRoi(ImageRegion.asImageCoordinates(600, 100, 800, 300));
+        backProcessorBuilder.setRoi(ImageRegion.asImageCoordinates(
+                600,
+                100,
+                800,
+                300));
 
-        // - Set the list of "acceptable" color swatches (matches).
-        //     Only colors that you assign here will be returned.
-        //     If you know the sensor will be pointing to one of a few specific colors, enter them here.
-        //     Or, if the sensor may be pointed randomly, provide some additional colors that may match the surrounding.
-        //     Note that in the example shown below, only some of the available colors are included.
-        //     This will force any other colored region into one of these colors.
-        //     eg: Green may be reported as YELLOW, as this may be the "closest" match.
+        /* - Set the list of "acceptable" color swatches (matches).
+             Only colors that you assign here will be returned.
+             If you know the sensor will be pointing to one of a few specific colors, enter them here.
+             Or, if the sensor may be pointed randomly, provide some additional colors that may match the surrounding.
+             Note that in the example shown below, only some of the available colors are included.
+             This will force any other colored region into one of these colors.
+             eg: Green may be reported as YELLOW, as this may be the "closest" match.*/
+
         frontProcessorBuilder.setSwatches(
                 PredominantColorProcessor.Swatch.ARTIFACT_GREEN,
-                PredominantColorProcessor.Swatch.ARTIFACT_PURPLE,
-                PredominantColorProcessor.Swatch.RED,
-                PredominantColorProcessor.Swatch.BLUE,
-                PredominantColorProcessor.Swatch.YELLOW,
-                PredominantColorProcessor.Swatch.BLACK,
-                PredominantColorProcessor.Swatch.WHITE);
+                PredominantColorProcessor.Swatch.ARTIFACT_PURPLE);
         frontPredominantColorProcessor = frontProcessorBuilder.build();
 
-        /*middleProcessorBuilder.setSwatches(
-                PredominantColorProcessor.Swatch.ARTIFACT_GREEN,
-                PredominantColorProcessor.Swatch.ARTIFACT_PURPLE,
-                PredominantColorProcessor.Swatch.RED,
-                PredominantColorProcessor.Swatch.BLUE,
-                //PredominantColorProcessor.Swatch.YELLOW,
-                PredominantColorProcessor.Swatch.BLACK,
-                PredominantColorProcessor.Swatch.WHITE);
-        middlePredominantColorProcessor = middleProcessorBuilder.build();*/
 
         backProcessorBuilder.setSwatches(
                 PredominantColorProcessor.Swatch.ARTIFACT_GREEN,
-                PredominantColorProcessor.Swatch.ARTIFACT_PURPLE,
-                PredominantColorProcessor.Swatch.RED,
-                PredominantColorProcessor.Swatch.BLUE,
-                //PredominantColorProcessor.Swatch.YELLOW,
-                PredominantColorProcessor.Swatch.BLACK,
-                PredominantColorProcessor.Swatch.WHITE);
+                PredominantColorProcessor.Swatch.ARTIFACT_PURPLE);
         backPredominantColorProcessor = backProcessorBuilder.build();
 
         // Build a vision portal to run the Color Sensor process.
         myVisionPortalBuilder = new VisionPortal.Builder();
         //  - Add the colorSensor process created above.
         myVisionPortalBuilder.addProcessor(frontPredominantColorProcessor);
-       // myVisionPortalBuilder.addProcessor(middlePredominantColorProcessor);
         myVisionPortalBuilder.addProcessor(backPredominantColorProcessor);
         //  - Set the desired video resolution.
         //      Since a high resolution will not improve this process, choose a lower resolution that is
@@ -182,10 +162,7 @@ public class ColorCamera2WithLL extends LinearOpMode {
             telemetry.setMsTransmissionInterval(50);
             telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE);
         }
-        int llTagId = 0;
-        int llTagId2 = 0;
-        double whatItDo = 0;
-        // Initialize your variable at 0 (meaning no valid motif is currently seen)
+
         int motifSum = 0;
         while (!isStarted() && !isStopRequested()) {
 

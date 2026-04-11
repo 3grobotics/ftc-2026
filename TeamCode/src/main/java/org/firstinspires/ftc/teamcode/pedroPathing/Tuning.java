@@ -158,7 +158,7 @@ class LocalizationTest extends OpMode {
         follower.update();
 
         telemetryM.debug("x:" + follower.getPose().getX());
-        telemetryM.debug("y:" + follower.getPose().getY());
+        telemetryM.debug("goalHeight:" + follower.getPose().getY());
         telemetryM.debug("heading:" + follower.getPose().getHeading());
         telemetryM.debug("total heading:" + follower.getTotalHeading());
         telemetryM.update(telemetry);
@@ -1424,7 +1424,7 @@ class PredictiveBrakingTuner extends OpMode {
                 telemetryM.debug("kLinearBraking", coefficients[0]);
                 for (BrakeRecord record : brakeData) {
                     Pose p = record.pose;
-                    telemetryM.debug(String.format("t=%.0f ms, x=%.2f, y=%.2f, θ=%.2f, v=%.2f",
+                    telemetryM.debug(String.format("t=%.0f ms, x=%.2f, goalHeight=%.2f, θ=%.2f, v=%.2f",
                             record.timeMs, p.getX(), p.getY(),
                             p.getHeading(),
                             record.velocity));

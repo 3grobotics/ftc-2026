@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 @TeleOp(name = "testing")
 public class testing extends LinearOpMode {
     double origin = 0;     //It is launched from the origin (this(0,0)) – defined as our robot turret exit
-    double shootPoint = 0;  //It passes through a point (this(x,y)) – which is the position of the goal
+    double shootPoint = 0;  //It passes through a point (this(x,goalHeight)) – which is the position of the goal
     //At that point, it is moving at a specific angle θ (relative to the horizontal)
 
     double airResistance = 0;

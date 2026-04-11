@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.Subsystems;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.PwmControl;
@@ -17,6 +18,7 @@ public class hardwareSubNewBot {
     public final Servo hood, swingArm, gate, sickle, ptoR, ptoL;
     public final ServoImplEx turret1, turret2;
     public final DigitalChannel topDistSensor, midDistSensor, frontDistSensor;
+    public final DistanceSensor revDist;
 
     public final GoBildaPinpointDriver pip;
 
@@ -43,6 +45,11 @@ public class hardwareSubNewBot {
         sickle = hardwareMap.get(Servo.class, "sickle");
         gate = hardwareMap.get(Servo.class, "gate");
         indexer = hardwareMap.get(DcMotorEx.class, "indexer");
+        revDist = hardwareMap.get(DistanceSensor.class, "revDist");
+
+
+
+
 
 
 
@@ -57,12 +64,13 @@ public class hardwareSubNewBot {
         turret2.setDirection(Servo.Direction.FORWARD);
         turret1.setPwmRange(new PwmControl.PwmRange(550, 2450));
         turret2.setPwmRange(new PwmControl.PwmRange(550, 2450));
+
         indexer.setDirection(DcMotorEx.Direction.REVERSE);
         intake.setDirection(DcMotorEx.Direction.REVERSE);
 
 
-        flywheel1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
-        flywheel2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
+        flywheel1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(30, 1, 10, 15));
+        flywheel2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(30, 1, 10, 15));
 
         pip.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pip.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);

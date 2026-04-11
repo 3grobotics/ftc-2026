@@ -50,7 +50,7 @@ public class ExampleAprilTagUsage extends LinearOpMode {
             pinpoint.update();
             telemetry.addData("Robot X", pinpoint.getPosX(DistanceUnit.INCH));
             telemetry.addData("Robot Y", pinpoint.getPosY(DistanceUnit.INCH));
-            telemetry.addData("MT2 Location y:", y * 39.3700787);
+            telemetry.addData("MT2 Location goalHeight:", y * 39.3700787);
             telemetry.addData("MT2 Location x:", x * 39.3700787);
             telemetry.addData("difference", ((getXPoseFromlimelight() * 39.3700787) + (getYPoseFromlimelight() * 39.3700787)) - (pinpoint.getPosX(DistanceUnit.INCH) + pinpoint.getPosY(DistanceUnit.INCH)));
 

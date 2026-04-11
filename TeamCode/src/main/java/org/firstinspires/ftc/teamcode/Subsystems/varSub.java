@@ -17,6 +17,8 @@ public class varSub {
     public double samOffset = 5;
     public boolean swingHigh = false;
 
+
+
     public varSub() {
 
     }
