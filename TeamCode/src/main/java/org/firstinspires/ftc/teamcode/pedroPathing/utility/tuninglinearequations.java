@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.pedroPathing.utility;
 
 import com.pedropathing.util.Timer;
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -8,9 +9,12 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
+import com.seattlesolvers.solverslib.photon.PhotonCore;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.VoltageUnit;
 import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.varSub;
@@ -135,6 +139,10 @@ public class tuninglinearequations extends LinearOpMode {
         hood.setDirection(Servo.Direction.REVERSE);
         t.setDirection(Servo.Direction.REVERSE);
         t2.setDirection(Servo.Direction.REVERSE);
+        PhotonCore.CONTROL_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        PhotonCore.EXPANSION_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        PhotonCore.PARALLELIZE_SERVOS = true;
+        PhotonCore.enable();
         waitForStart();
 
         while (opModeIsActive()) {
@@ -179,6 +187,12 @@ public class tuninglinearequations extends LinearOpMode {
                 f1.setVelocity(v);
                 f2.setVelocity(v);
             }
+
+            telemetry.addData("photon volts aux", PhotonCore.CONTROL_HUB.getAuxiliaryVoltage(VoltageUnit.VOLTS));
+            telemetry.addData("photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("expantion photon amps ", PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("total photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS) + PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("photon info ", PhotonCore.CONTROL_HUB.getConnectionInfo());
 
             // Debounce gamepad1 buttons for intake control
             boolean currentDpadLeft = gamepad1.dpad_left;
@@ -248,7 +262,7 @@ public class tuninglinearequations extends LinearOpMode {
                     double intakeCmd = (gamepad1.right_trigger + gamepad2.right_trigger) - (gamepad1.left_trigger + gamepad2.left_trigger);
                     h.intake.setPower(-intakeCmd);
                     h.indexer.setPower(-intakeCmd);
-                    h.swingArm.setPosition(.6); // Move swing arm for manual intake
+                    h.swingArm.setPosition(.65); // Move swing arm for manual intake
                     h.gate.setPosition(.65);    // Set gate for manual intake
 
                     if (Math.abs(intakeCmd) < 0.1) { // Triggers released

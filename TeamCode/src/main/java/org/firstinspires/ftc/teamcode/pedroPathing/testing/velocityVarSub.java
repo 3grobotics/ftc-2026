@@ -5,7 +5,7 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 public class velocityVarSub {
 
-    public static double theta = -20;
+    public static double theta = -45;
     public static double goalHeight = 40;
     public static double passThroughPointRadius = 0;
 

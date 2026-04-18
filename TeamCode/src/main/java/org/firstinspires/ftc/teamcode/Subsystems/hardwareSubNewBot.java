@@ -60,6 +60,7 @@ public class hardwareSubNewBot {
         hood.setDirection(Servo.Direction.REVERSE);
         flywheel1.setDirection(DcMotorEx.Direction.REVERSE);
         flywheel2.setDirection(DcMotorEx.Direction.REVERSE);
+
         turret1.setDirection(Servo.Direction.FORWARD);
         turret2.setDirection(Servo.Direction.FORWARD);
         turret1.setPwmRange(new PwmControl.PwmRange(550, 2450));

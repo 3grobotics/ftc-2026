@@ -3,21 +3,27 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 import android.util.Size;
 
 import com.pedropathing.util.Timer;
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.hardware.ControlSystem;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
+import com.seattlesolvers.solverslib.photon.PhotonCore;
 
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.robotcore.external.navigation.VoltageUnit;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSub;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.varSub;
@@ -25,6 +31,8 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.opencv.ImageRegion;
 import org.firstinspires.ftc.vision.opencv.PredominantColorProcessor;
 import static org.firstinspires.ftc.teamcode.pedroPathing.stateTeleOpRedNOTMODDED.farSlope;
+
+import java.util.Collection;
 
 @TeleOp(name = "ColorCamera 2")
 public class ColorCamera2 extends LinearOpMode {
@@ -109,7 +117,7 @@ public class ColorCamera2 extends LinearOpMode {
     private boolean rightStickButtonWasPressed = false; // Changed from original to prevent immediate re-trigger
 
     double hpos;
-    double samOffset;
+    public static double samOffset;
 
     /**
      * This OpMode illustrates how to use a video source (camera) as a color sensor
@@ -216,9 +224,126 @@ public class ColorCamera2 extends LinearOpMode {
         boolean bb = gamepad2.b;
         boolean prevaa = aa;
         boolean prevbb = bb;
+        PhotonCore.CONTROL_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        PhotonCore.EXPANSION_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        PhotonCore.PARALLELIZE_SERVOS = true;
+        PhotonCore.enable();
 
+        float motif = 111;
         waitForStart();
         while (opModeIsActive()) {
+
+
+            Gamepad.LedEffect motif112Effect = new Gamepad.LedEffect.Builder()
+                    .addStep(255, 0, 255, 400) //purple
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 255, 400) //purple
+                    .addStep(0, 0, 0, 100)
+                    .addStep(0, 255, 0, 400)   //green
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 0, 500)   //red
+                    .addStep(0, 0, 0, 400)     //pause
+                    .setRepeating(true)
+                    .build();
+
+            Gamepad.LedEffect motif121Effect = new Gamepad.LedEffect.Builder()
+                    .addStep(255, 0, 255, 400) //purple
+                    .addStep(0, 0, 0, 100)
+                    .addStep(0, 255, 0, 400)   //green
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 255, 400) //purple
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 0, 500)   //red
+                    .addStep(0, 0, 0, 400)     //pause
+                    .setRepeating(true)
+                    .build();
+
+            Gamepad.LedEffect motif211Effect = new Gamepad.LedEffect.Builder()
+                    .addStep(0, 255, 0, 400)   //green
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 255, 400) //purple
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 255, 400) //purple
+                    .addStep(0, 0, 0, 100)
+                    .addStep(255, 0, 0, 500)   //red
+                    .addStep(0, 0, 0, 400)     //pause
+                    .setRepeating(true)
+                    .build();
+
+            if (gamepad2.left_bumper){
+
+                if (gamepad2.x){
+                    motif = 211;
+                    gamepad2.runLedEffect(motif211Effect);
+                } else if (gamepad2.a){
+                    motif = 121;
+                    gamepad2.runLedEffect(motif121Effect);
+                } else if (gamepad2.b){
+                    motif = 112;
+                    gamepad2.runLedEffect(motif112Effect);
+                }
+
+            }
+
+            // motif + 0
+            if (gamepad2.x){
+                if (motif == 211){
+                    // sort to 211
+                }
+
+                if (motif == 121){
+                    // sort to 121
+                }
+
+                if (motif == 112){
+                    // sort to 112
+                }
+
+
+            }
+
+            // motif + 1
+            if (gamepad2.a){
+                if (motif == 211){
+                    // sort to 121
+                }
+
+                if (motif == 121){
+                    // sort to 112
+                }
+
+                if (motif == 112){
+                    // sort to 211
+                }
+            }
+
+            // motif + 2
+            if (gamepad2.a){
+                if (motif == 211){
+                    // sort to 112
+                }
+
+                if (motif == 121){
+                    // sort to 211
+                }
+
+                if (motif == 112){
+                    // sort to 121
+                }
+            }
+
+
+
+
+            telemetry.addData("photon volts aux", PhotonCore.CONTROL_HUB.getAuxiliaryVoltage(VoltageUnit.VOLTS));
+            telemetry.addData("photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("expantion photon amps ", PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("total photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS) + PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("photon info ", PhotonCore.CONTROL_HUB.getConnectionInfo());
+            //PhotonCore.CONTROL_HUB.setConstant(8388736);
+            //PhotonCore.EXPANSION_HUB.setConstant(8388736);
+
+
             try {
                 Thread.sleep(20);
             } catch (InterruptedException e) {
@@ -292,7 +417,7 @@ public class ColorCamera2 extends LinearOpMode {
                     // Default positions when nothing is active
                     h.intake.setPower(0);
                     h.indexer.setPower(0);
-                    h.sickle.setPosition(1.0);
+                    h.sickle.setPosition(.85);
                     // h.swingArm.setPosition(1.0); // Allow swingArm to retain its last position when idle unless another state sets it
                     h.gate.setPosition(0.65); // Default closed/intake position
                     break;
@@ -301,7 +426,7 @@ public class ColorCamera2 extends LinearOpMode {
                     double intakeCmd = (gamepad1.right_trigger + gamepad2.right_trigger) - (gamepad1.left_trigger + gamepad2.left_trigger);
                     h.intake.setPower(-intakeCmd);
                     h.indexer.setPower(-intakeCmd);
-                    h.swingArm.setPosition(.6); // Move swing arm for manual intake
+                    h.swingArm.setPosition(.65); // Move swing arm for manual intake
                     h.gate.setPosition(.65);    // Set gate for manual intake
 
                     if (Math.abs(intakeCmd) < 0.1) { // Triggers released
@@ -325,7 +450,7 @@ public class ColorCamera2 extends LinearOpMode {
                     break;
 
                 case SINGLE_NOTE_CYCLE_INIT:
-                    h.sickle.setPosition(0.85);
+                     h.sickle.setPosition(0.7);
                     h.swingArm.setPosition(0.55);
                     h.gate.setPosition(0.82);
                     intakeStateTimer.reset();
@@ -340,7 +465,7 @@ public class ColorCamera2 extends LinearOpMode {
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_2:
                     if (intakeStateTimer.milliseconds() > 500) { // Cumulative time
-                        h.sickle.setPosition(0.9);
+                         h.sickle.setPosition(.75);
                         currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_3;
                     }
                     break;
@@ -464,7 +589,7 @@ public class ColorCamera2 extends LinearOpMode {
                             break;
                         case 1: // Wait for swing arm reset delay (500ms from original sleep)
                             if (intakeStateTimer.milliseconds() > 500) {
-                                h.sickle.setPosition(0.85);
+                                 h.sickle.setPosition(0.8);
                                 h.swingArm.setPosition(0.6);
                                 h.gate.setPosition(0.82);
                                 intakeStateTimer.reset();
@@ -481,7 +606,7 @@ public class ColorCamera2 extends LinearOpMode {
                             break;
                         case 3: // Wait for 250ms then sickle to 0.9
                             if (intakeStateTimer.milliseconds() > 250) {
-                                h.sickle.setPosition(0.9);
+                                 h.sickle.setPosition(0.75);
                                 intakeStateTimer.reset();
                                 cycleSubStep = 4;
                             }
@@ -687,7 +812,7 @@ public class ColorCamera2 extends LinearOpMode {
 
             double finalServoDegrees = baseServoDegrees + v.visionOffsetDeg + samOffset;
 
-            /*if(h.pip.getHeading(AngleUnit.DEGREES) >= 110 || h.pip.getHeading(AngleUnit.DEGREES) <= 156){
+            /*if (h.pip.getHeading(AngleUnit.DEGREES) >= 110 || h.pip.getHeading(AngleUnit.DEGREES) <= 156){
                 if (finalServoDegrees < 180){
                     h.frontLeft.setPower(1);
                     h.backLeft.setPower( 1);
@@ -790,6 +915,12 @@ public class ColorCamera2 extends LinearOpMode {
 
 
 
+
+
+
+
+
+
             telemetry.addData("Best Match front", frontResult != null ? frontResult.closestSwatch : "N/A");
             telemetry.addData("Best Match middle", middleResult != null ? middleResult.closestSwatch : "N/A");
             telemetry.addData("Best Match back", backResult != null ? backResult.closestSwatch : "N/A");
@@ -821,7 +952,8 @@ public class ColorCamera2 extends LinearOpMode {
                 telemetry.addData("Cycle Sub-Step", cycleSubStep);
             }
 
-
+            PhotonCore.CONTROL_HUB.clearBulkCache();
+            PhotonCore.EXPANSION_HUB.clearBulkCache();
             telemetry.update();
         }
     }

@@ -12,21 +12,31 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.varSub;
 import org.firstinspires.ftc.teamcode.pedroPathing.ColorCamera2;
-import org.firstinspires.ftc.teamcode.pedroPathing.testing.velocityVarSub;
 import org.firstinspires.ftc.vision.opencv.PredominantColorProcessor;
 
-@TeleOp(name="velocity compensation test", group="Linear OpMode")
-public class velCompensationTest extends LinearOpMode {
+@TeleOp(name="velocity compensation test no ai", group="Linear OpMode")
+//@Disabled
+public class velCompensationTestNoAI extends LinearOpMode {
+    
     hardwareSubNewBot h;
+    
     varSub v;
     double turretAngle = .5;
     double flywheelSpeed = 1;
     double hoodAngle = 0.7;
-
+    double radicand1;
+    double x;
+    double xl;
+    double yl;
+    double hypot;
+    double robotX;
+    double robotY;
     private IntakeState currentIntakeState = IntakeState.IDLE;
     private ElapsedTime intakeStateTimer = new ElapsedTime();
     private int cycleSubStep = 0; // Used for multi-step cycles like single-note and till-color
 
+    boolean aa = false;
+    boolean bb = false;
     enum IntakeState {
         IDLE,
         MANUAL_TRIGGERS_ACTIVE, // User holding triggers for intake/outtake
@@ -72,7 +82,10 @@ public class velCompensationTest extends LinearOpMode {
     private boolean leftStickButtonWasPressed = false;
     private boolean rightStickButtonWasPressed = false; // Changed from original to prevent immediate re-trigger
 
+    double mult = 5;
 
+    boolean prevaa = false;
+    boolean prevbb = false;
     @Override
     public void runOpMode() {
         h = new hardwareSubNewBot(hardwareMap);
@@ -80,22 +93,29 @@ public class velCompensationTest extends LinearOpMode {
 
         h.pip.resetPosAndIMU();
 
-        boolean left, right, prevleft = false, prevright = false;
-        boolean aa, bb, prevaa = false, prevbb = false;
+        boolean left = gamepad2.dpad_left;
+        boolean right = gamepad2.dpad_right;
+        boolean prevleft = left;
+        boolean prevright = right;
+
+        boolean aa = false;
+        boolean bb = false;
+        boolean prevaa = aa;
+        boolean prevbb = bb;
 
         double samOffset = 0;
+
         waitForStart();
 
         while (opModeIsActive()) {
+
+            // Debounce gamepad1 buttons for intake control
             boolean currentDpadLeft = gamepad1.dpad_left;
             boolean currentPs = gamepad1.ps;
             boolean currentRightBumper = gamepad1.right_bumper;
             boolean currentRightStickButton = gamepad1.right_stick_button;
             boolean currentLeftStickButton = gamepad1.left_stick_button;
 
-            // State transition logic from IDLE or by interrupting certain states
-            // Prioritize specific multi-button or complex actions over simpler ones.
-            // If currently in an active intake state, new button presses might override or be ignored.
             if (currentIntakeState == IntakeState.IDLE || currentIntakeState == IntakeState.MANUAL_TRIGGERS_ACTIVE || currentIntakeState == IntakeState.GATE_MANUAL_CONTROL) {
                 if (currentLeftStickButton && currentRightStickButton && !leftStickButtonWasPressed && !rightStickButtonWasPressed) {
                     // Corrected priority: Most specific combination first
@@ -138,12 +158,14 @@ public class velCompensationTest extends LinearOpMode {
             rightStickButtonWasPressed = currentRightStickButton;
             leftStickButtonWasPressed = currentLeftStickButton;
 
+
+            // Execute current intake state logic
             switch (currentIntakeState) {
                 case IDLE:
                     // Default positions when nothing is active
                     h.intake.setPower(0);
                     h.indexer.setPower(0);
-                    h.sickle.setPosition(1.0);
+                    h.sickle.setPosition(.85);
                     // h.swingArm.setPosition(1.0); // Allow swingArm to retain its last position when idle unless another state sets it
                     h.gate.setPosition(0.65); // Default closed/intake position
                     break;
@@ -176,7 +198,7 @@ public class velCompensationTest extends LinearOpMode {
                     break;
 
                 case SINGLE_NOTE_CYCLE_INIT:
-                    h.sickle.setPosition(0.85);
+                    h.sickle.setPosition(0.7);
                     h.swingArm.setPosition(0.55);
                     h.gate.setPosition(0.82);
                     intakeStateTimer.reset();
@@ -191,7 +213,7 @@ public class velCompensationTest extends LinearOpMode {
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_2:
                     if (intakeStateTimer.milliseconds() > 500) { // Cumulative time
-                        h.sickle.setPosition(0.9);
+                        h.sickle.setPosition(.75);
                         currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_3;
                     }
                     break;
@@ -275,154 +297,198 @@ public class velCompensationTest extends LinearOpMode {
                     }
                     break;
 
-
-
+                // --- INTAKE TILL COLOR STATES (PPG, PGP, GPP) ---
+                // These states cycle through a full intake sequence, then check for color, and repeat if not found.
+                // The 'INIT' state sets up the first cycle step.
 
             }
 
             vectorAndTurretUpdate(h.pip.getHeading(AngleUnit.RADIANS));
 
+
             while (turretAngle > Math.PI) turretAngle -= 2 * Math.PI;
             while (turretAngle < -Math.PI) turretAngle += 2 * Math.PI;
 
-            // 1. Calculate base degrees from physics and apply your proven center logic
-            double baseServoDegrees = Math.toDegrees(turretAngle) - (314.6112145 / 2.0);
+            // Convert to degrees and apply center offset
+            double baseServoDegrees = (turretAngle) - (314.6112145 / 2.0);
 
+            // Gamepad trim logic
             left = gamepad2.dpad_left;
             right = gamepad2.dpad_right;
+
             aa = gamepad2.a;
             bb = gamepad2.b;
 
-            if (left && !prevleft && !right) samOffset = Range.clip(samOffset + 2.5, -40, 40);
-            if (right && !prevright && !left) samOffset = Range.clip(samOffset - 2.5, -40, 40);
-            if (aa && !prevaa && !bb) samOffset = Range.clip(samOffset + 2.5, -40, 40);
-            if (bb && !prevbb && !aa) samOffset = Range.clip(samOffset - 2.5, -40, 40);
 
-            prevleft = left; prevright = right;
-            prevaa = aa; prevbb = bb;
-
-            double finalServoDegrees = baseServoDegrees + samOffset;
-            double finalPosition = Math.abs((finalServoDegrees) / 314.6112145);
-
-            // 2. Hardware: Turret
-            if (gamepad2.ps) {
-                h.turret1.setPosition(0.5);
-                h.turret2.setPosition(0.5);
-            } else {
-                h.turret1.setPosition(Range.clip(finalPosition, 0, 1));
-                h.turret2.setPosition(Range.clip(finalPosition, 0, 1));
+            if (left && !prevleft && !right) {
+                samOffset = Range.clip(samOffset + 2.5, -40, 40);
+            }
+            if (right && !prevright && !left) {
+                samOffset = Range.clip(samOffset - 2.5, -40, 40);
             }
 
-            // 3. Hardware: Flywheel
-            if (gamepad1.x) v.var = 1;
-            else if (gamepad1.y) v.var = 0;
+            prevleft = left;
+            prevright = right;
+
+            if (aa && !prevaa && !bb) {
+                samOffset = Range.clip(samOffset + 2.5, -40, 40);
+            }
+            if (bb && !prevbb && !aa) {
+                samOffset = Range.clip(samOffset - 2.5, -40, 40);
+            }
+
+            prevaa = aa;
+            prevbb = bb;
+
+            double finalServoDegrees = turretAngle + samOffset;
+
+            //h.turret1.setPosition(Math.abs((finalServoDegrees) / 314.6112145));
+            //h.turret2.setPosition(Math.abs((finalServoDegrees) / 314.6112145));
+
+            telemetry.addData("turretAngle", turretAngle);
+            telemetry.addData("x", robotX);
+            telemetry.addData("y", robotY);
+            telemetry.addData("theta", velocityVarSub.theta);
+            telemetry.addData("(finalServoDegrees) / 314.6112145)", (Math.abs((finalServoDegrees) / 314.6112145)));
+            telemetry.addData("hood angle", ((0.959931 - 0.558505) / (.7 - 0)) * hoodAngle);
+            telemetry.addData("flywheel speed", flywheelSpeed);
+            telemetry.addData("radicand1", radicand1);
+            telemetry.addData("hypot", hypot);
+            telemetry.addData("mult", mult);
+            telemetry.update();
+
+
+
+
+
+
+
+
+
+            if (gamepad1.x) {
+                v.var = 1;
+            } else if (gamepad1.y) {
+                v.var = 0;
+            }
 
             if (v.var == 1) {
-                h.flywheel1.setVelocity(getFlywheelTicksFromVelocity(flywheelSpeed));
-                h.flywheel2.setVelocity(getFlywheelTicksFromVelocity(flywheelSpeed));
+                h.flywheel1.setVelocity(flywheelSpeed);
+                h.flywheel2.setVelocity(flywheelSpeed);
             } else {
                 h.flywheel1.setVelocity(0);
                 h.flywheel2.setVelocity(0);
             }
 
-            // 4. Hardware: Hood (Mapping physics to your specific servo limits)
-            // 0.558 rad (32°) = Flattest Shot -> 0.0 Servo
-            // 0.959 rad (55°) = Steepest Shot -> 0.7 Servo
-            double hoodPercent = (hoodAngle - 0.558505) / (0.959931 - 0.558505);
-            double finalHoodPos = hoodPercent * 0.7;
-            h.hood.setPosition(Range.clip(finalHoodPos, 0, 0.7));
 
-            // 5. Drive Control
-            v.axial = -gamepad1.left_stick_y;
-            v.lateral = gamepad1.left_stick_x;
-            v.yawCmd = gamepad1.right_stick_x;
 
-            double fl = v.axial + v.lateral + v.yawCmd;
-            double fr = v.axial - v.lateral - v.yawCmd;
-            double bl = v.axial - v.lateral + v.yawCmd;
-            double br = v.axial + v.lateral - v.yawCmd;
 
-            double max = Math.max(1.0, Math.max(Math.abs(fl), Math.max(Math.abs(fr), Math.max(Math.abs(bl), Math.abs(br)))));
 
-            h.frontLeft.setPower(fl / max);
-            h.frontRight.setPower(fr / max);
-            h.backLeft.setPower(bl / max);
-            h.backRight.setPower(br / max);
+            h.hood.setPosition(getHoodTicksFromDegrees(Math.toDegrees(hoodAngle)));
 
-            // Telemetry
-            telemetry.addData("Raw Rad", turretAngle);
-            telemetry.addData("Turret Servo", finalPosition);
-            telemetry.addData("Hood Angle Deg", Math.toDegrees(hoodAngle));
-            telemetry.addData("Hood Servo Pos", finalHoodPos);
-            telemetry.addData("TPS", getFlywheelTicksFromVelocity(flywheelSpeed));
-            telemetry.update();
+
+
+
 
             h.pip.update();
         }
     }
 
     private void vectorAndTurretUpdate(double robotHeading){
-        double robotX = h.pip.getPosX(DistanceUnit.INCH);
-        double robotY = h.pip.getPosY(DistanceUnit.INCH);
 
-        double xl = v.tx - robotX;
-        double yl = v.ty - robotY;
-        double x = Math.sqrt((xl * xl) + (yl * yl));
+
+
+        // private Vector????
+        robotX = -h.pip.getPosX(DistanceUnit.INCH);
+        robotY = h.pip.getPosY(DistanceUnit.INCH);
+
+        xl = v.tx - robotX;
+        yl = v.ty - robotY;
+
+        hypot  = Math.sqrt((xl * xl) + (yl * yl));
+
         double angleToGoal = Math.atan2(yl, xl);
 
-        double vx = h.pip.getVelX(DistanceUnit.INCH);
-        double vy = h.pip.getVelY(DistanceUnit.INCH);
 
-        // 1. Time Estimation & Virtual Target (Velocity Compensation)
-        double time = x / 120.0;
-        time = Range.clip(time, 0, 1.5);
+        x = hypot;
 
-        double virtualX = xl - (vx * time);
-        double virtualY = yl - (vy * time);
+        hoodAngle = MathFunctions.clamp(Math.atan(((velocityVarSub.goalHeight * 2) / x ) - (Math.tan(velocityVarSub.theta))) , 0.558505,0.959931);
 
-        // ndr is the velocity-compensated distance
-        double ndr = Math.sqrt(virtualX * virtualX + virtualY * virtualY);
-        double compensatedAngleToGoal = Math.atan2(virtualY, virtualX);
 
-        // ==========================================================
-        // THE FIX: Define the arc trajectory
-        // Instead of a broken formula, we smoothly transition the hood
-        // from 55° (Close: 50 in) down to 32° (Far: 130 in).
-        // ==========================================================
-        double targetAngleDegrees = 55.0 - ((ndr - 50.0) * (55.0 - 32.0) / (130.0 - 50.0));
-        targetAngleDegrees = Range.clip(targetAngleDegrees, 32.0, 55.0);
 
-        // Convert to radians for the physics engine
-        hoodAngle = Math.toRadians(targetAngleDegrees);
+        radicand1 = Math.sqrt((velocityVarSub.g * x * x) / (2 * Math.pow(Math.cos(hoodAngle), 2) * (x * Math.tan(hoodAngle) - velocityVarSub.goalHeight)));
 
-        // ==========================================================
-        // PURE PHYSICS: Calculate the exact speed for the chosen angle
-        // ==========================================================
-        double cosH = Math.cos(hoodAngle);
-        double tanH = Math.tan(hoodAngle);
+        if (radicand1 > 0) {
+            //flywheelSpeed = Math.sqrt(radicand1);
+            flywheelSpeed = getFlywheelTicksFromVelocity(radicand1, hypot);
+        } else {
+            flywheelSpeed = 0; // Or a reasonable default
+        }
 
-        // The Math.max prevents the 20,000 tick explosion if the math gets too tight
-        double verticalGap = Math.max(1.0, (ndr * tanH - velocityVarSub.goalHeight));
+        /*double parallelComponent = h.pip.getVelY(DistanceUnit.INCH);
+        double perpendicularComponent = h.pip.getVelX(DistanceUnit.INCH);
 
-        double radicand = (velocityVarSub.g * ndr * ndr) / (2 * Math.pow(cosH, 2) * verticalGap);
-        flywheelSpeed = (radicand > 0) ? Math.sqrt(radicand) : 0;
+        double vz = flywheelSpeed * Math.sin(hoodAngle);
+        double denominatorTime = flywheelSpeed * Math.cos(hoodAngle);
+        double time = (denominatorTime != 0) ? x / denominatorTime : 0;
+        double ivr = x / time * parallelComponent;
+        double nvr = Math.sqrt(ivr * ivr + perpendicularComponent * perpendicularComponent);
+        double ndr = nvr * time;
 
-        // Final Turret Angle
-        turretAngle = (compensatedAngleToGoal - robotHeading + Math.PI);
+        hoodAngle = MathFunctions.clamp(Math.atan2(vz, nvr), 0.558505, 0.959931);
+
+        double radicand2 = (velocityVarSub.g * ndr * ndr) / ((2 * Math.pow(Math.cos(hoodAngle), 2) * (ndr * Math.tan(hoodAngle) - velocityVarSub.goalHeight)));
+
+        if (radicand2 > 0) {
+            flywheelSpeed = Math.sqrt(radicand2);
+        } else {
+            // If the compensated version fails, keep the old speed or set to 0
+            flywheelSpeed = 0;
+        }
+        double turretVelCompOffset = Math.atan(perpendicularComponent / ivr);
+        turretAngle = robotHeading - angleToGoal + turretVelCompOffset;*/
+
+
+
+
+
+
+
     }
-    public static double getFlywheelTicksFromVelocity(double physicsVelocityInches){
-        // 1. Convert theoretical physics output to FPS
-        double theoreticalFPS = physicsVelocityInches / 12.0;
 
-        // 2. Apply the "Reality Check" Ratio
-        // This scales the aggressive pure math down to your highly efficient IRL hardware.
-        // If it shoots a little too hot, lower this to 0.60. If it falls short, raise to 0.65.
-        double aerodynamicFactor = 0.63;
-        double actualTargetFPS = theoreticalFPS * aerodynamicFactor;
+    public  double getFlywheelTicksFromVelocity(double velocity, double x){
 
-        // 3. Apply your IRL spreadsheet trendline
-        double tps = (77.6 * actualTargetFPS) + 20.9;
 
-        return tps;
+        aa = gamepad1.a;
+        bb = gamepad1.b;
+
+        if (aa && !prevaa && !bb) {
+            mult = Range.clip(mult - 0.01, 0, 10);
+        }
+        if (bb && !prevbb && !aa) {
+            mult = Range.clip(mult + 0.01, 0, 10);
+        }
+
+        // update prev AFTER using them
+        prevaa = aa;
+        prevbb = bb;
+
+       
+        
+        if(x > 101){
+            return velocity * (mult);
+        } else if (x > 76){
+            return velocity * (mult);
+        } else if(x > 50){
+            return velocity * (mult);
+        }
+        
+        
+        
+        return velocity * (mult);
+        //return velocity * (6.636705202);
+
+    }
+    public static double getHoodTicksFromDegrees(double degrees){
+        return 0.0304 * degrees - .973913;
     }
 }

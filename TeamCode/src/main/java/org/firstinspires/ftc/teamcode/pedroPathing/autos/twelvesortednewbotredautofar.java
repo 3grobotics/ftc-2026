@@ -66,12 +66,25 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
     private PredominantColorProcessor.Result frontResult;
     private PredominantColorProcessor.Result backResult;
 
-    // Limelight Motif Sum, accessible by both main and background thread
-    private int motifSum = 0;
+    // Stores the single Tag ID detected on the flat face
+    private int activeTag = 0;
 
     // Background Threading Variables
     private Thread cycleThread = null;
     private volatile boolean isCycling = false;
+
+    // Enum for the background sorting thread
+    public enum IntakeState {
+        IDLE,
+        SINGLE_NOTE_CYCLE_INIT,
+        SINGLE_NOTE_CYCLE_STEP_1,
+        SINGLE_NOTE_CYCLE_STEP_2,
+        SINGLE_NOTE_CYCLE_STEP_3,
+        SINGLE_NOTE_CYCLE_STEP_4,
+        SINGLE_NOTE_CYCLE_STEP_5,
+        SINGLE_NOTE_CYCLE_STEP_6,
+        SINGLE_NOTE_CYCLE_STEP_7
+    }
 
     public static double farSlope = 1750;
     public static double targetX = 144;
@@ -106,7 +119,7 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
 
         follower = Constants.createFollower(hardwareMap);
 
-        Pose pedroStart = new Pose(121.000, 123.000, Math.toRadians(-42), PedroCoordinates.INSTANCE);
+        Pose pedroStart = new Pose(100.000, 8.000, Math.toRadians(-90), PedroCoordinates.INSTANCE);
         Pose ftcStart = pedroStart.getAsCoordinateSystem(FTCCoordinates.INSTANCE);
         double ftcHeadingDeg = ftcStart.getHeading();
 
@@ -176,40 +189,57 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
         myVisionPortalBuilder.setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"));
         myVisionPortal = myVisionPortalBuilder.build();
 
-        int llTagId = 0;
-        int llTagId2 = 0;
-        double whatItDo = 0;
-
-        // This loop runs ONCE before Start is pressed to detect motifSum
+        // This loop runs ONCE before Start is pressed to detect the SINGLE tag and verify colors
         while (!isStarted() && !isStopRequested()) {
+
+            // --- 1. TAG DETECTION ---
             LLResult result = limelight.getLatestResult();
             if (result != null && result.isValid()) {
                 List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-                List<Integer> seenIds = new ArrayList<>();
 
-                for (LLResultTypes.FiducialResult fiducial : fiducials) {
-                    seenIds.add(fiducial.getFiducialId());
-                }
+                if (fiducials.size() == 1) {
+                    activeTag = fiducials.get(0).getFiducialId();
+                    telemetry.addData("Looking at flat face. Detected Tag", activeTag);
 
-                if (seenIds.size() == 2) {
-                    motifSum = seenIds.get(0) + seenIds.get(1);
+                    if (activeTag == 23) {
+                        telemetry.addLine("Config: Need PURPLE in BOTH");
+                    } else if (activeTag == 22) {
+                        telemetry.addLine("Config: Need PURPLE in FRONT, GREEN in BACK");
+                    } else if (activeTag == 21) {
+                        telemetry.addLine("Config: Need GREEN in FRONT, PURPLE in BACK");
+                    } else {
+                        telemetry.addLine("Unknown tag ID detected!");
+                    }
+                } else if (fiducials.size() > 1) {
+                    telemetry.addLine("Seeing multiple tags! Please align to a FLAT FACE (1 tag).");
+                    activeTag = 0;
                 } else {
-                    motifSum = 0; // Reset if not exactly 2 tags
+                    telemetry.addLine("No tags found. Centering turret to 151.5...");
+                    activeTag = 0;
                 }
-
-                if (motifSum == 43) {
-                    telemetry.addLine("Motif 21-22 (gpp) detected!");
-                } else if (motifSum == 45) {
-                    telemetry.addLine("Motif 22-23 (pgp) detected!");
-                } else if (motifSum == 44) {
-                    telemetry.addLine("Motif 23-21 (ppg) detected!");
-                } else if (seenIds.size() == 1) {
-                    telemetry.addData("Looking at flat face. Only seeing Tag", seenIds.get(0));
-                } else {
-                    telemetry.addLine("No valid obelisk face found. Centering turret to 151.5...");
-                }
-                telemetry.update();
             }
+
+            // --- 2. PRE-START COLOR CHECK ---
+            frontResult = frontPredominantColorProcessor.getAnalysis();
+            backResult = backPredominantColorProcessor.getAnalysis();
+
+            boolean frontSeesTarget = (frontResult.closestSwatch == PredominantColorProcessor.Swatch.ARTIFACT_GREEN) ||
+                    (frontResult.closestSwatch == PredominantColorProcessor.Swatch.ARTIFACT_PURPLE);
+
+            boolean backSeesTarget = (backResult.closestSwatch == PredominantColorProcessor.Swatch.ARTIFACT_GREEN) ||
+                    (backResult.closestSwatch == PredominantColorProcessor.Swatch.ARTIFACT_PURPLE);
+
+            // If neither camera sees a valid color, throw a massive warning
+            telemetry.addLine("==============================");
+            if (!frontSeesTarget && !backSeesTarget) {
+                telemetry.addLine("⚠️ WARNING: CANNOT SEE PURPLE OR GREEN! ⚠️");
+            } else {
+                telemetry.addData("✅ Front Camera Sees", frontResult.closestSwatch);
+                telemetry.addData("✅ Back Camera Sees", backResult.closestSwatch);
+            }
+            telemetry.addLine("==============================");
+
+            telemetry.update();
         }
 
         // After OpMode starts
@@ -223,6 +253,7 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
 
         setPathState(0);
         opmodeTimer.resetTimer();
+        actionTimer.resetTimer();
 
         // Main OpMode loop
         while (opModeIsActive() && !isStopRequested()) {
@@ -230,8 +261,13 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
             pip.update();
             autonomousPathUpdate();
 
-            h.flywheel1.setVelocity((double) (2800 * 28) / 60);
-            h.flywheel2.setVelocity((double) (2800 * 28) / 60);
+            h.flywheel1.setVelocity((double) (3200 * 28) / 60);
+            h.flywheel2.setVelocity((double) (3200 * 28) / 60);
+
+            h.hood.setPosition(0);
+
+            h.turret1.setPosition(.58);
+            h.turret2.setPosition(.58);
 
             frontResult = frontPredominantColorProcessor.getAnalysis();
             backResult = backPredominantColorProcessor.getAnalysis();
@@ -242,51 +278,97 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
             if (all && !isCycling) {
                 boolean shouldStartCycling = false;
 
-                if (motifSum == 44 && !frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) {
-                    shouldStartCycling = true;
-                } else if (motifSum == 45 && !backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) {
-                    shouldStartCycling = true;
-                } else if (motifSum == 43 && !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) {
-                    shouldStartCycling = true;
+                // Checking if the current block FAILS the tag's color requirements
+                if (activeTag == 23 && !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) {
+                    shouldStartCycling = true; // Needs Both Purple
+                } else if (activeTag == 22 && !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN))) {
+                    shouldStartCycling = true; // Needs Front Purple, Back Green
+                } else if (activeTag == 21 && !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) {
+                    shouldStartCycling = true; // Needs Front Green, Back Purple
                 }
 
                 if (shouldStartCycling) {
                     isCycling = true;
                     cycleThread = new Thread(() -> {
+                        Timer intakeStateTimer = new Timer();
+                        IntakeState currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_INIT;
+
                         try {
                             while (!Thread.currentThread().isInterrupted() && opModeIsActive()) {
 
                                 frontResult = frontPredominantColorProcessor.getAnalysis();
                                 backResult = backPredominantColorProcessor.getAnalysis();
 
-                                if (motifSum == 44 && frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
-                                if (motifSum == 45 && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
-                                if (motifSum == 43 && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) break;
+                                // Break out of thread if correct block arrives
+                                if (activeTag == 23 && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) break;
+                                if (activeTag == 22 && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN))) break;
+                                if (activeTag == 21 && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) break;
 
-                                h.sickle.setPosition(0.85);
-                                h.swingArm.setPosition(0.55);
-                                h.gate.setPosition(0.82);
-                                Thread.sleep(250);
-                                h.intake.setPower(-1);
-                                h.indexer.setPower(-1);
-                                Thread.sleep(250);
-                                h.sickle.setPosition(0.9);
-                                Thread.sleep(250);
-                                h.gate.setPosition(0.85);
-                                h.swingArm.setPosition(0.2);
-                                h.intake.setPower(0);
-                                Thread.sleep(250);
-                                h.intake.setPower(0.5);
-                                h.indexer.setPower(-1);
-                                Thread.sleep(200);
-                                h.indexer.setPower(1);
-                                Thread.sleep(100);
-                                h.gate.setPosition(0.65);
-                                h.indexer.setPower(0);
-                                h.swingArm.setPosition(0.55);
-                                h.intake.setPower(-1);
-                                Thread.sleep(100);
-                                h.intake.setPower(0);
+                                switch (currentIntakeState) {
+                                    case IDLE:
+                                        // The cycle finished and the bad block is gone.
+                                        // Return to kill the thread and let the main loop take over again.
+                                        return;
+                                    case SINGLE_NOTE_CYCLE_INIT:
+                                        h.sickle.setPosition(0.7);
+                                        h.swingArm.setPosition(0.55);
+                                        h.gate.setPosition(0.82);
+                                        intakeStateTimer.resetTimer();
+                                        currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_1;
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_1:
+                                        if (intakeStateTimer.getElapsedTime() > 250) {
+                                            h.intake.setPower(-1);
+                                            h.indexer.setPower(-1);
+                                            currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_2;
+                                        }
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_2:
+                                        if (intakeStateTimer.getElapsedTime() > 500) { // Cumulative time
+                                            h.sickle.setPosition(.75);
+                                            currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_3;
+                                        }
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_3:
+                                        if (intakeStateTimer.getElapsedTime() > 750) { // Cumulative time
+                                            h.gate.setPosition(0.85);
+                                            h.swingArm.setPosition(0.2);
+                                            h.intake.setPower(0);
+                                            currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_4;
+                                        }
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_4:
+                                        if (intakeStateTimer.getElapsedTime() > 1000) { // Cumulative time
+                                            h.intake.setPower(0.5);
+                                            h.indexer.setPower(-1);
+                                            currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_5;
+                                        }
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_5:
+                                        if (intakeStateTimer.getElapsedTime() > 1200) { // Cumulative time
+                                            h.indexer.setPower(1);
+                                            currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_6;
+                                        }
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_6:
+                                        if (intakeStateTimer.getElapsedTime() > 1300) { // Cumulative time
+                                            h.gate.setPosition(0.65);
+                                            h.indexer.setPower(0);
+                                            h.swingArm.setPosition(0.55);
+                                            h.intake.setPower(-1);
+                                            currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_7;
+                                        }
+                                        break;
+                                    case SINGLE_NOTE_CYCLE_STEP_7:
+                                        if (intakeStateTimer.getElapsedTime() > 1400) { // Cumulative time
+                                            h.intake.setPower(0);
+                                            currentIntakeState = IntakeState.IDLE;
+                                        }
+                                        break;
+                                }
+
+                                // Small sleep prevents thread from locking up the CPU
+                                Thread.sleep(10);
                             }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
@@ -327,7 +409,7 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
             panelsTelemetry.debug("Path State", pathState);
             panelsTelemetry.debug("X", pose.getX());
             panelsTelemetry.debug("Y", pose.getY());
-            panelsTelemetry.debug("Tag ID", motifSum);
+            panelsTelemetry.debug("Active Tag ID", activeTag);
             panelsTelemetry.update(telemetry);
         }
 
@@ -352,6 +434,13 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
         if (paths != null) {
             drawSolidPathChain(paths.lineupwithfirst, "rgba(200,200,200,0.1)");
             drawSolidPathChain(paths.getfirst, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.gotofirefirst, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.getsecond, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.backtofiresecond, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.lineupwithflush, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.getflush, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.backtofireflush, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.park, "rgba(200,200,200,0.1)");
 
             PathChain active = getActivePathChain();
             if (active != null) {
@@ -470,6 +559,20 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
                 return paths.lineupwithfirst;
             case 2:
                 return paths.getfirst;
+            case 3:
+                return paths.gotofirefirst;
+            case 4:
+                return paths.getsecond;
+            case 5:
+                return paths.backtofiresecond;
+            case 6:
+                return paths.lineupwithflush;
+            case 7:
+                return paths.getflush;
+            case 8:
+                return paths.backtofireflush;
+            case 9:
+                return paths.park;
             default:
                 return null;
         }
@@ -477,29 +580,166 @@ public class twelvesortednewbotredautofar extends LinearOpMode {
 
     public void autonomousPathUpdate() {
         switch (pathState) {
-            case 0:
-                follower.followPath(paths.lineupwithfirst, true);
-                setPathState(1);
-                actionTimer.resetTimer();
+            case 0: // INITIAL HARDWARE PREP
+                // Run your deployment/prep sequence immediately, yielding to sorter
+                if (actionTimer.getElapsedTime() > 4000 && !isCycling) {
+                    h.gate.setPosition(.97);
+                    h.indexer.setPower(-1);
+                    h.intake.setPower(-1);
+                    h.swingArm.setPosition(.95);
+                }
+
+                // Wait a couple of seconds before moving
+                if (actionTimer.getElapsedTime() > 8000) {
+                    follower.followPath(paths.lineupwithfirst, true);
+                    setPathState(1);
+                    actionTimer.resetTimer();
+                }
                 break;
 
-            case 1:
-                if (actionTimer.getElapsedTime() > 3000) {
+            case 1: // Wait then drive
+                // Wait for arrival at lineup
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    // Time-gated hardware action (prep intake), yielding to sorter
+                    if (actionTimer.getElapsedTime() > 500 && actionTimer.getElapsedTime() < 2500) {
+                        if (!isCycling) {
+                            h.gate.setPosition(.65);
+                            h.indexer.setPower(-1);
+                            h.intake.setPower(-1);
+                            h.swingArm.setPosition(.55);
+                        }
+                    }
+
+                    // Advance to get first
+                    if (actionTimer.getElapsedTime() > 2500) {
+                        follower.followPath(paths.getfirst, true);
+                        setPathState(2);
+                        actionTimer.resetTimer();
+                        if (!isCycling) {
+                            h.intake.setPower(0);
+                            h.indexer.setPower(0);
+                        }
+                    }
+                }
+                break;
+
+            case 2: // DRIVE IMMEDIATELY
+                if (!follower.isBusy()) {
+                    follower.followPath(paths.gotofirefirst, false);
+                    setPathState(3);
+                    actionTimer.resetTimer();
+                }
+                break;
+
+            case 3: // Pause and act
+                // Arrive at fire, stay stationary so the parallel cycleThread can shoot
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    if (actionTimer.getElapsedTime() > 500 && actionTimer.getElapsedTime() < 1500) {
+                        if (!isCycling) {
+                            h.intake.setPower(0);
+                            h.indexer.setPower(0);
+                        }
+                    }
+
+                    if (actionTimer.getElapsedTime() > 2500) {
+                        follower.followPath(paths.getsecond, true);
+                        setPathState(4);
+                        actionTimer.resetTimer();
+                    }
+                }
+                break;
+
+            case 4: // CONTINUOUS OVERRIDE
+                // Continuously assert power OUTSIDE the isBusy check, yielding to sorter
+                if (!isCycling) {
                     h.gate.setPosition(1);
                     h.indexer.setPower(-1);
                     h.intake.setPower(-1);
                     h.swingArm.setPosition(.9);
                 }
 
-                if (actionTimer.getElapsedTime() > 5000 && !follower.isBusy()) {
-                    follower.followPath(paths.getfirst, true);
-                    setPathState(2);
-                    h.intake.setPower(0);
-                    h.indexer.setPower(0);
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    if(actionTimer.getElapsedTime() > 2000){
+                        state5 = true;
+                    }
+
+                    if (state5) {
+                        follower.resumePathFollowing();
+                        follower.followPath(paths.backtofiresecond, true);
+                        setPathState(5);
+                        actionTimer.resetTimer();
+                        state5 = false; // Reset flag for safety
+                    }
                 }
                 break;
 
-            case 2:
+            case 5: // Pause and act (Wait stationary at fire pos)
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    // Wait for cycleThread to shoot, then go to flush
+                    if (actionTimer.getElapsedTime() > 2500) {
+                        follower.followPath(paths.lineupwithflush, true);
+                        setPathState(6);
+                        actionTimer.resetTimer();
+                    }
+                }
+                break;
+
+            case 6: // DRIVE IMMEDIATELY
+                if (!follower.isBusy()) {
+                    follower.followPath(paths.getflush, false);
+                    setPathState(7);
+                    actionTimer.resetTimer();
+                }
+                break;
+
+            case 7: // CONTINUOUS OVERRIDE
+                // Intake while moving to flush block, yielding to sorter
+                if (!isCycling) {
+                    h.gate.setPosition(1);
+                    h.indexer.setPower(-1);
+                    h.intake.setPower(-1);
+                    h.swingArm.setPosition(.9);
+                }
+
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    if(actionTimer.getElapsedTime() > 2000){
+                        state8 = true;
+                    }
+
+                    if (state8) {
+                        follower.resumePathFollowing();
+                        follower.followPath(paths.backtofireflush, true);
+                        setPathState(8);
+                        actionTimer.resetTimer();
+                        state8 = false;
+                    }
+                }
+                break;
+
+            case 8: // Wait then drive to park
+                if (!follower.isBusy()) {
+                    follower.pausePathFollowing();
+
+                    // Wait for final cycleThread to shoot
+                    if (actionTimer.getElapsedTime() > 2500) {
+                        follower.followPath(paths.park, true);
+                        setPathState(9);
+                        actionTimer.resetTimer();
+                    }
+                }
+                break;
+
+            case 9: // End
                 if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     setPathState(-1);
                 }

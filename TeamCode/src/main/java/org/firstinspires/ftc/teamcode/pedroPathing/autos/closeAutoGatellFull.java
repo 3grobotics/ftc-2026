@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.pedroPathing;
+package org.firstinspires.ftc.teamcode.pedroPathing.autos;
 
 import android.util.Size;
 
@@ -33,6 +33,7 @@ import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.newintakeSub;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.opencv.ImageRegion;
 import org.firstinspires.ftc.vision.opencv.PredominantColorProcessor;
@@ -41,9 +42,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("unused")
-@Autonomous(name = "close auto gate ll test", group = "Autonomous")
+@Autonomous(name = "close auto gate ll full", group = "Autonomous")
 @Configurable
-public class closeAutoGatell extends LinearOpMode {
+public class closeAutoGatellFull extends LinearOpMode {
 
     public Follower follower;
 
@@ -242,11 +243,11 @@ public class closeAutoGatell extends LinearOpMode {
             if (all && !isCycling) {
                 boolean shouldStartCycling = false;
 
-                if (motifSum == 44 && !frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) {
+                if (motifSum == 44 && (frontResult == null || !frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN))) {
                     shouldStartCycling = true;
-                } else if (motifSum == 45 && !backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) {
+                } else if (motifSum == 45 && (backResult == null || !backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN))) {
                     shouldStartCycling = true;
-                } else if (motifSum == 43 && !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) {
+                } else if (motifSum == 43 && (frontResult == null || backResult == null || !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE)))) {
                     shouldStartCycling = true;
                 }
 
@@ -259,33 +260,57 @@ public class closeAutoGatell extends LinearOpMode {
                                 frontResult = frontPredominantColorProcessor.getAnalysis();
                                 backResult = backPredominantColorProcessor.getAnalysis();
 
-                                if (motifSum == 44 && frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
-                                if (motifSum == 45 && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
-                                if (motifSum == 43 && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) break;
+                                // Check to break cycle
+                                if (motifSum == 44 && frontResult != null && frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
+                                if (motifSum == 45 && backResult != null && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
+                                if (motifSum == 43 && frontResult != null && backResult != null && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) break;
 
-                                h.sickle.setPosition(0.85);
-                                h.swingArm.setPosition(0.55);
+                                // Step 0 / 1: Swing arm reset and wait
+                                h.swingArm.setPosition(1);
+                                h.sickle.setPosition(1);
+                                h.gate.setPosition(0.65);
+                                h.intake.setPower(0);
+                                h.indexer.setPower(0);
+                                Thread.sleep(500);
+
+                                // Step 1: Prep intake positions
+                                h.sickle.setPosition(0.8);
+                                h.swingArm.setPosition(0.6);
                                 h.gate.setPosition(0.82);
                                 Thread.sleep(250);
+
+                                // Step 2: Intake on
                                 h.intake.setPower(-1);
                                 h.indexer.setPower(-1);
                                 Thread.sleep(250);
-                                h.sickle.setPosition(0.9);
+
+                                // Step 3: Sickle adjust
+                                h.sickle.setPosition(0.75);
                                 Thread.sleep(250);
+
+                                // Step 4: Gate and Swing adjust, intake off
                                 h.gate.setPosition(0.85);
                                 h.swingArm.setPosition(0.2);
                                 h.intake.setPower(0);
                                 Thread.sleep(250);
+
+                                // Step 5: Transfer to indexer
                                 h.intake.setPower(0.5);
                                 h.indexer.setPower(-1);
                                 Thread.sleep(200);
+
+                                // Step 6: Indexer bump
                                 h.indexer.setPower(1);
                                 Thread.sleep(100);
+
+                                // Step 7: Clear out and reset gate
                                 h.gate.setPosition(0.65);
                                 h.indexer.setPower(0);
-                                h.swingArm.setPosition(0.55);
+                                h.swingArm.setPosition(0.6);
                                 h.intake.setPower(-1);
                                 Thread.sleep(100);
+
+                                // Step 8: Intake off
                                 h.intake.setPower(0);
                             }
                         } catch (InterruptedException e) {
@@ -293,6 +318,7 @@ public class closeAutoGatell extends LinearOpMode {
                         } finally {
                             h.intake.setPower(0);
                             h.indexer.setPower(0);
+                            h.swingArm.setPosition(1); // Final reset upon exit
                             isCycling = false;
                         }
                     });
@@ -351,7 +377,14 @@ public class closeAutoGatell extends LinearOpMode {
 
         if (paths != null) {
             drawSolidPathChain(paths.Path1, "rgba(200,200,200,0.1)");
-            drawSolidPathChain(paths.Path2, "rgba(200,200,200,0.1)"); // Added drawing for Path 2
+            drawSolidPathChain(paths.Path2, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.Path3, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.Path4, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.Path5, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.Path6, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.Path7, "rgba(200,200,200,0.1)");
+            drawSolidPathChain(paths.Path8, "rgba(200,200,200,0.1)");
+
             PathChain active = getActivePathChain();
             if (active != null) {
                 drawFadingPathChain(active);
@@ -469,6 +502,18 @@ public class closeAutoGatell extends LinearOpMode {
                 return paths.Path1;
             case 2:
                 return paths.Path2;
+            case 3:
+                return paths.Path3;
+            case 4:
+                return paths.Path4;
+            case 5:
+                return paths.Path5;
+            case 6:
+                return paths.Path6;
+            case 7:
+                return paths.Path7;
+            case 8:
+                return paths.Path8;
             default:
                 return null;
         }
@@ -500,6 +545,48 @@ public class closeAutoGatell extends LinearOpMode {
 
             case 2:
                 if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path3, true);
+                    setPathState(3);
+                }
+                break;
+
+            case 3:
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path4, true);
+                    setPathState(4);
+                }
+                break;
+
+            case 4:
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path5, true);
+                    setPathState(5);
+                }
+                break;
+
+            case 5:
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path6, true);
+                    setPathState(6);
+                }
+                break;
+
+            case 6:
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path7, true);
+                    setPathState(7);
+                }
+                break;
+
+            case 7:
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
+                    follower.followPath(paths.Path8, true);
+                    setPathState(8);
+                }
+                break;
+
+            case 8:
+                if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     setPathState(-1);
                 }
                 break;
@@ -514,29 +601,102 @@ public class closeAutoGatell extends LinearOpMode {
     }
 
     public static class Paths {
-        public PathChain Path1, Path2;
+        public PathChain Path1;
+        public PathChain Path2;
+        public PathChain Path3;
+        public PathChain Path4;
+        public PathChain Path5;
+        public PathChain Path6;
+        public PathChain Path7;
+        public PathChain Path8;
 
         public Paths(Follower follower) {
             Path1 = follower.pathBuilder()
                     .addPath(
-                            new BezierLine(
-                                    new Pose(123.000, 118.000),
-                                    new Pose(86.000, 86.000)
+                            new BezierCurve(
+                                    new Pose(121.000, 123.000),
+                                    new Pose(57.000, 86.000),
+                                    new Pose(81.000, 49.000),
+                                    new Pose(96.000, 57.000),
+                                    new Pose(102.000, 59.000),
+                                    new Pose(126.000, 59.000)
                             )
                     )
-                    .setLinearHeadingInterpolation(Math.toRadians(-26.69), Math.toRadians(0))
+                    .addPoseCallback(new Pose(87,87), () -> follower.pausePathFollowing(), .5)
+                    .setLinearHeadingInterpolation(Math.toRadians(-42), Math.toRadians(0))
                     .build();
 
             Path2 = follower.pathBuilder()
                     .addPath(
                             new BezierCurve(
-                                    new Pose(86.000, 86.000),
-                                    new Pose(78.000, 60.000),
-                                    new Pose(105.000, 60.000),
-                                    new Pose(128.000, 59.000)
+                                    new Pose(126.000, 59.000),
+                                    new Pose(116.000, 71.000),
+                                    new Pose(130.000, 70.000)
                             )
                     )
                     .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                    .build();
+
+            Path3 = follower.pathBuilder()
+                    .addPath(
+                            new BezierCurve(
+                                    new Pose(130.000, 70.000),
+                                    new Pose(82.000, 69.000),
+                                    new Pose(86.000, 86.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                    .build();
+
+            Path4 = follower.pathBuilder()
+                    .addPath(
+                            new BezierLine(
+                                    new Pose(86.000, 86.000),
+                                    new Pose(126.000, 86.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                    .build();
+
+            Path5 = follower.pathBuilder()
+                    .addPath(
+                            new BezierLine(
+                                    new Pose(126.000, 86.000),
+                                    new Pose(86.000, 86.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                    .build();
+
+            Path6 = follower.pathBuilder()
+                    .addPath(
+                            new BezierCurve(
+                                    new Pose(86.000, 86.000),
+                                    new Pose(91.000, 26.000),
+                                    new Pose(126.000, 35.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                    .build();
+
+            Path7 = follower.pathBuilder()
+                    .addPath(
+                            new BezierLine(
+                                    new Pose(126.000, 35.000),
+                                    new Pose(86.000, 86.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(307))
+                    .build();
+
+            Path8 = follower.pathBuilder()
+                    .addPath(
+                            new BezierLine(
+                                    new Pose(86.000, 86.000),
+                                    new Pose(86.000, 103.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(307), Math.toRadians(270))
                     .build();
         }
     }
