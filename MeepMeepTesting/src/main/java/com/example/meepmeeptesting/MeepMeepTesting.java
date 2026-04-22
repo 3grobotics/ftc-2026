@@ -31,7 +31,7 @@ public class MeepMeepTesting {
                 .setTangent(Math.toRadians(270))
                 .splineToLinearHeading(new Pose2d(-12, 20, Math.toRadians(90)), Math.toRadians(215))
 
-                // pickup second spike
+                // pickup second spike mark
                 .strafeTo(new Vector2d(-12, 55))
 
 
