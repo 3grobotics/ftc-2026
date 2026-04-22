@@ -21,10 +21,18 @@ public class MeepMeepTesting {
                 .splineToLinearHeading(new Pose2d(12, 24, Math.toRadians(90)), Math.toRadians(90))
                 // first pickup
                 .splineToSplineHeading(new Pose2d(12, 52, Math.toRadians(90)), Math.toRadians(90))
-                // flush isuhrlieswiubhuyvgiygdsdlgasihsduycdsil
-                        .setTangent(Math.toRadians(90))
+                // flush
+                .setTangent(Math.toRadians(90))
                 .splineToLinearHeading(new Pose2d(5, 55, Math.toRadians(90)), Math.toRadians(90))
 
+                // back for second shot
+                .setTangent(Math.toRadians(270))
+                .splineToLinearHeading(new Pose2d(5, 30, Math.toRadians(90)), Math.toRadians(270))
+                .setTangent(Math.toRadians(270))
+                .splineToLinearHeading(new Pose2d(-12, 20, Math.toRadians(90)), Math.toRadians(215))
+
+                // pickup second spike
+                .strafeTo(new Vector2d(-12, 55))
 
 
                 .build());
