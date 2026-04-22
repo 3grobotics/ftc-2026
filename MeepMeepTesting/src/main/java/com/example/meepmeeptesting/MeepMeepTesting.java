@@ -21,7 +21,7 @@ public class MeepMeepTesting {
                 .splineToLinearHeading(new Pose2d(12, 24, Math.toRadians(90)), Math.toRadians(90))
                 // first pickup
                 .splineToSplineHeading(new Pose2d(12, 52, Math.toRadians(90)), Math.toRadians(90))
-                // flush
+                // flush isuhrlieswiubhuyvgiygdsdlgasihsduycdsil
                         .setTangent(Math.toRadians(90))
                 .splineToLinearHeading(new Pose2d(5, 55, Math.toRadians(90)), Math.toRadians(90))
 
