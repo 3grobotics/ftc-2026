@@ -5,6 +5,8 @@
  */
 
 buildscript {
+    ext.kotlinVersion = '2.3.0' // <-- ADD THIS LINE
+
     repositories {
         mavenCentral()
         google()
@@ -12,6 +14,7 @@ buildscript {
     dependencies {
         // Note for FTC Teams: Do not modify this yourself.
         classpath 'com.android.tools.build:gradle:8.7.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" // <-- ADD THIS LINE
     }
 }
 
@@ -26,4 +29,12 @@ allprojects {
 
 repositories {
     mavenCentral()
+}
+// Disables Android Lint to prevent AGP metadata crashes with newer libraries
+allprojects {
+    tasks.configureEach { task ->
+        if (task.name.toLowerCase().contains("lint")) {
+            task.enabled = false
+        }
+    }
 }

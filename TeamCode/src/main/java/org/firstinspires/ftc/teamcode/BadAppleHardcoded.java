@@ -67,9 +67,9 @@ public class BadAppleHardcoded extends OpMode {
 
     // --- STRIPPED DOWN RENDERER ---
     public static class Renderer {
-        private int width;
-        private int height;
-        private boolean[][] pixels;
+        private final int width;
+        private final int height;
+        private final boolean[][] pixels;
 
         public Renderer(int width, int height) {
             this.width = width;

@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 
 public class hardwareSubNewBot {
     public final DcMotorEx flywheel1, flywheel2, intake, frontRight, backRight, backLeft, frontLeft, indexer;
-    public final Servo hood, swingArm, gate, sickle, ptoR, ptoL;
+    public final Servo hood, swingArm, gate, sickle, ptoR, ptoL, nautR, nautL;
     public final ServoImplEx turret1, turret2;
     public final DigitalChannel topDistSensor, midDistSensor, frontDistSensor;
     public final DistanceSensor revDist;
@@ -46,6 +46,8 @@ public class hardwareSubNewBot {
         gate = hardwareMap.get(Servo.class, "gate");
         indexer = hardwareMap.get(DcMotorEx.class, "indexer");
         revDist = hardwareMap.get(DistanceSensor.class, "revDist");
+        nautR = hardwareMap.get(Servo.class, "nautR");
+        nautL = hardwareMap.get(Servo.class, "nautL");
 
 
 

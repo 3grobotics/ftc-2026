@@ -33,6 +33,7 @@ import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.newintakeSub;
+import org.firstinspires.ftc.teamcode.pedroPathing.ColorCamera2testing;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.opencv.ImageRegion;
@@ -72,21 +73,32 @@ public class closeAutoGatellFull extends LinearOpMode {
 
     // Background Threading Variables
     private Thread cycleThread = null;
+    private Timer cycleTimer = new Timer();
     private volatile boolean isCycling = false;
 
-    public static double farSlope = 1750;
-    public static double targetX = 144;
-    public static double targetY = 144;
-    public static double aimOffsetDeg = 0.0;
-    public static double samOffset = 5.0;
-    public static double visionOffsetDeg = 0.0;
+
     boolean state5 = false;
     boolean state8 = false;
     boolean state11 = false;
 
+    double hpos;
+    double robotX;
+    double robotY;
+    double xl;
+    double yl;
+    double hypot;
+
+    double vx;
+    double vy;
+    double vTarget                   = 0;
+    double tx = -72; // Target X
+    double ty = 72;  // Target Y
+    double t = 1;
+     boolean all = false;
     @Override
     public void runOpMode() {
         TelemetryManager panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
+
         Timer opmodeTimer = new Timer();
 
         h = new hardwareSubNewBot(hardwareMap);
@@ -121,7 +133,7 @@ public class closeAutoGatellFull extends LinearOpMode {
 
         follower.setStartingPose(pedroStart);
 
-        paths = new Paths(follower);
+        paths = new Paths(follower, h);
 
         pathTimer = new Timer();
         actionTimer = new Timer();
@@ -214,7 +226,7 @@ public class closeAutoGatellFull extends LinearOpMode {
         }
 
         // After OpMode starts
-        boolean all = false;
+
         waitForStart();
         if (isStopRequested()) {
             limelight.stop();
@@ -231,8 +243,117 @@ public class closeAutoGatellFull extends LinearOpMode {
             pip.update();
             autonomousPathUpdate();
 
-            h.flywheel1.setVelocity((double) (2800 * 28) / 60);
-            h.flywheel2.setVelocity((double) (2800 * 28) / 60);
+            vy                         = h.pip.getVelY(DistanceUnit.INCH);
+            vx                         = h.pip.getVelX(DistanceUnit.INCH);
+
+
+            tx                         = -72 - (vx * t); // 72 or tx maybe
+            ty                         =  72 - (vy * t); // 72 or tx maybe
+
+
+            h.pip.update(); // leftdate position first!
+
+            robotX                     = h.pip.getPosX(DistanceUnit.INCH);
+            robotY                     = h.pip.getPosY(DistanceUnit.INCH);
+
+            xl                         = tx - robotX;
+            yl                         = ty - robotY;
+            hypot                      = Math.sqrt((xl * xl) + (yl * yl));
+
+
+            if ( hypot < 89){
+                t                      =  0.004 * hypot + 0.468;
+            } else if ( hypot > 89 && hypot < 121)  {
+                t                      =  0.833;
+            } else if ( hypot > 121) {
+                t                      = -0.004 * hypot + 1.317;
+            }
+
+
+            // =========================================================================
+            //  TURRET APPLICATION (UNWRAPPING BOUNDARY FIX)
+            // =========================================================================
+            double angleToGoal = Math.atan2(yl, xl);
+            double robotHeading = h.pip.getHeading(AngleUnit.RADIANS);
+
+            // Absolute target angle relative to the robot chassis
+            // Removed + Math.PI to correct the 180-degree offset
+            double targetTurretRad = angleToGoal - robotHeading;
+
+            // unwrap to [-pi, pi]
+            while (targetTurretRad > Math.PI) targetTurretRad -= 2 * Math.PI;
+            while (targetTurretRad < -Math.PI) targetTurretRad += 2 * Math.PI;
+
+            // Convert to degrees and apply center offset
+            double finalServoDegrees = Math.toDegrees(targetTurretRad) - (314.6112145 / 2.0);
+
+
+            h.turret1.setPosition(Math.abs((finalServoDegrees) / 314.6112145));
+            h.turret2.setPosition(Math.abs((finalServoDegrees) / 314.6112145));
+
+
+
+
+
+            // =========================================================================
+            //  FLYWHEEL LINEAR REGRESSION
+            // =========================================================================
+
+            if (hypot < 75) {
+
+                vTarget = 9.938 * hypot + 1022.646;
+                /*double d1 = 53, d2 = 95;
+                double v1 = 1450, v2 = 1960;
+                double slope = (v2 - v1) / (d2 - d1);
+                vTarget = 1200 + (slope * (hypot - d1));*/
+            } else if(hypot > 75 && hypot < 96.3){
+                vTarget = 12.066 * hypot + 863.05;
+                // Zone: Far
+                /*double d1 = 132.5, d2 = 158;
+                double v1 = 2330, v2 = 2430;
+                double slope = (v2 - v1) / (d2 - d1);
+                vTarget = 2300 + (slope * (hypot - d1));*/
+            } else if(hypot > 96.3 && hypot < 129) {
+                vTarget = 9.817 * hypot + 1079.623;
+            } else if(hypot > 151) {
+                vTarget = 11.727 * hypot + 833.217;
+            }
+
+
+            vTarget = Range.clip(vTarget, 0, 6000); // Adjust max based on motor
+
+                    h.flywheel1.setVelocity(((vTarget) * 37.33) / 60);
+                    h.flywheel2.setVelocity(((vTarget) * 37.33) / 60);
+
+            // =========================================================================
+            //  HOOD LINEAR REGRESSION
+            // =========================================================================
+
+            if (hypot < 75) {
+
+                hpos = -0.006 * hypot + 1.053;
+                    /*double d1 = 53, d2 = 95;
+                    double v1 = .7, v2 = .2;
+                    double slope = (v2 - v1) / (d2 - d1);
+                    hpos = v1 + (slope * (hypot - d1));*/
+            } else if(hypot > 75 && hypot < 96.3){
+                hpos = -0.005 * hypot + 0.975;
+                // Zone: Far
+                    /*double d1 = 132.5, d2 = 158;
+                    double v1 = 0, v2 = 0;
+                    double slope = (v2 - v1) / (d2 - d1);
+                    hpos = v1 + (slope * (hypot - d1));*/
+            } else if(hypot > 96.3 && hypot < 129){
+                hpos = -0.015 * hypot + 1.944;
+            } else if(hypot > 151){
+                hpos = 0;
+            }
+
+
+            hpos = Range.clip(hpos, 0, .7);
+            h.hood.setPosition(hpos);
+            // h.hood.setPosition(hpos - velDiff);
+
 
             frontResult = frontPredominantColorProcessor.getAnalysis();
             backResult = backPredominantColorProcessor.getAnalysis();
@@ -240,112 +361,126 @@ public class closeAutoGatellFull extends LinearOpMode {
             all = (h.topDistSensor.getState() && h.midDistSensor.getState() && h.frontDistSensor.getState());
 
             // --- PARALLEL CYCLING LOGIC ---
-            if (all && !isCycling) {
-                boolean shouldStartCycling = false;
+            if (!isCycling) {
+                boolean shouldStopCycling = false;
 
-                if (motifSum == 44 && (frontResult == null || !frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN))) {
-                    shouldStartCycling = true;
-                } else if (motifSum == 45 && (backResult == null || !backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN))) {
-                    shouldStartCycling = true;
-                } else if (motifSum == 43 && (frontResult == null || backResult == null || !(frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE)))) {
-                    shouldStartCycling = true;
+                if (motifSum == 44 && frontResult != null && frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) {
+                    shouldStopCycling = true;
+                } else if (motifSum == 45 && backResult != null && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) {
+                    shouldStopCycling = true;
+                } else if (motifSum == 43 && frontResult != null && backResult != null && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) {
+                    shouldStopCycling = true;
                 }
 
-                if (shouldStartCycling) {
+                if (!shouldStopCycling && all) {
                     isCycling = true;
                     cycleThread = new Thread(() -> {
                         try {
-                            while (!Thread.currentThread().isInterrupted() && opModeIsActive()) {
+                            int cycleStep = 0;
+                            cycleTimer.resetTimer();
 
+                            while (!Thread.currentThread().isInterrupted() && opModeIsActive()) {
                                 frontResult = frontPredominantColorProcessor.getAnalysis();
                                 backResult = backPredominantColorProcessor.getAnalysis();
 
                                 // Check to break cycle
-                                if (motifSum == 44 && frontResult != null && frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
-                                if (motifSum == 45 && backResult != null && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) break;
-                                if (motifSum == 43 && frontResult != null && backResult != null && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE))) break;
+                                boolean stopCondition = (motifSum == 44 && frontResult != null && frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) ||
+                                                       (motifSum == 45 && backResult != null && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_GREEN)) ||
+                                                       (motifSum == 43 && frontResult != null && backResult != null && (frontResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE) && backResult.closestSwatch.equals(PredominantColorProcessor.Swatch.ARTIFACT_PURPLE)));
+                                if (stopCondition || !all) break;
 
-                                // Step 0 / 1: Swing arm reset and wait
-                                h.swingArm.setPosition(1);
-                                h.sickle.setPosition(1);
-                                h.gate.setPosition(0.65);
-                                h.intake.setPower(0);
-                                h.indexer.setPower(0);
-                                Thread.sleep(500);
+                                switch (cycleStep) {
+                                    case 0: // Reset positions
+                                        h.swingArm.setPosition(1);
+                                        h.sickle.setPosition(1);
+                                        h.gate.setPosition(0.65);
+                                        h.intake.setPower(0);
+                                        h.indexer.setPower(0);
+                                        if (cycleTimer.getElapsedTime() > 500) {
+                                            cycleStep = 1;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 1: // Prep intake
+                                        h.sickle.setPosition(0.8);
+                                        h.swingArm.setPosition(0.6);
+                                        h.gate.setPosition(0.82);
+                                        if (cycleTimer.getElapsedTime() > 250) {
+                                            cycleStep = 2;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 2: // Intake on
+                                        h.intake.setPower(-1);
+                                        h.indexer.setPower(-1);
+                                        if (cycleTimer.getElapsedTime() > 250) {
+                                            cycleStep = 3;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 3: // Sickle adjust
+                                        h.sickle.setPosition(0.75);
+                                        if (cycleTimer.getElapsedTime() > 250) {
+                                            cycleStep = 4;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 4: // Gate and Swing adjust
+                                        h.gate.setPosition(0.85);
+                                        h.swingArm.setPosition(0.2);
+                                        h.intake.setPower(0);
+                                        if (cycleTimer.getElapsedTime() > 250) {
+                                            cycleStep = 5;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 5: // Transfer
+                                        h.intake.setPower(0.5);
+                                        h.indexer.setPower(-1);
+                                        if (cycleTimer.getElapsedTime() > 200) {
+                                            cycleStep = 6;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 6: // Indexer bump
+                                        h.indexer.setPower(1);
+                                        if (cycleTimer.getElapsedTime() > 100) {
+                                            cycleStep = 7;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 7: // Clear and reset
+                                        h.gate.setPosition(0.65);
+                                        h.indexer.setPower(0);
+                                        h.swingArm.setPosition(0.6);
+                                        h.intake.setPower(-1);
+                                        if (cycleTimer.getElapsedTime() > 100) {
+                                            cycleStep = 8;
+                                            cycleTimer.resetTimer();
+                                        }
+                                        break;
+                                    case 8: // Finish
+                                        h.intake.setPower(0);
+                                        cycleStep = 0; // Loop back to start of cycle
+                                        cycleTimer.resetTimer();
+                                        break;
+                                }
 
-                                // Step 1: Prep intake positions
-                                h.sickle.setPosition(0.8);
-                                h.swingArm.setPosition(0.6);
-                                h.gate.setPosition(0.82);
-                                Thread.sleep(250);
-
-                                // Step 2: Intake on
-                                h.intake.setPower(-1);
-                                h.indexer.setPower(-1);
-                                Thread.sleep(250);
-
-                                // Step 3: Sickle adjust
-                                h.sickle.setPosition(0.75);
-                                Thread.sleep(250);
-
-                                // Step 4: Gate and Swing adjust, intake off
-                                h.gate.setPosition(0.85);
-                                h.swingArm.setPosition(0.2);
-                                h.intake.setPower(0);
-                                Thread.sleep(250);
-
-                                // Step 5: Transfer to indexer
-                                h.intake.setPower(0.5);
-                                h.indexer.setPower(-1);
-                                Thread.sleep(200);
-
-                                // Step 6: Indexer bump
-                                h.indexer.setPower(1);
-                                Thread.sleep(100);
-
-                                // Step 7: Clear out and reset gate
-                                h.gate.setPosition(0.65);
-                                h.indexer.setPower(0);
-                                h.swingArm.setPosition(0.6);
-                                h.intake.setPower(-1);
-                                Thread.sleep(100);
-
-                                // Step 8: Intake off
-                                h.intake.setPower(0);
+                                // Use a tiny sleep to prevent pegged CPU usage in the background thread
+                                // without blocking the hardware update frequency.
+                                Thread.sleep(10);
                             }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         } finally {
-                            h.intake.setPower(0);
-                            h.indexer.setPower(0);
-                            h.swingArm.setPosition(1); // Final reset upon exit
                             isCycling = false;
                         }
                     });
+                    cycleThread.setPriority(Thread.NORM_PRIORITY);
                     cycleThread.start();
                 }
             }
-            // --- END PARALLEL CYCLING LOGIC ---
 
-            // Turret targeting calculations
-            double robotX = pip.getPosX(DistanceUnit.INCH);
-            double robotY = pip.getPosY(DistanceUnit.INCH);
-            double xl = targetX - robotX;
-            double yl = targetY - robotY;
-            double angleToGoal = Math.atan2(yl, xl);
-            double robotHeading = pip.getHeading(AngleUnit.RADIANS);
-            double calculatedTurretRad = angleToGoal - robotHeading;
-
-            while (calculatedTurretRad > Math.PI) {
-                calculatedTurretRad -= 2 * Math.PI;
-            }
-            while (calculatedTurretRad < -Math.PI) {
-                calculatedTurretRad += 2 * Math.PI;
-            }
-
-            double finalServoDegrees = Math.toDegrees(calculatedTurretRad) + 202;
-            finalServoDegrees += visionOffsetDeg + samOffset + aimOffsetDeg;
-            finalServoDegrees = Range.clip(finalServoDegrees, 0, 404);
 
             Pose pose = follower.getPose();
             drawOverlay(pose, finalServoDegrees);
@@ -528,22 +663,16 @@ public class closeAutoGatellFull extends LinearOpMode {
                 break;
 
             case 1:
-                if (actionTimer.getElapsedTime() > 3000) {
-                    h.gate.setPosition(1);
-                    h.indexer.setPower(-1);
-                    h.intake.setPower(-1);
-                    h.swingArm.setPosition(.9);
-                }
 
                 if (actionTimer.getElapsedTime() > 5000 && !follower.isBusy()) {
-                    follower.followPath(paths.Path2, true);
-                    setPathState(2);
+                    follower.followPath(paths.RESET, true);
+                    setPathState(8);
                     h.intake.setPower(0);
                     h.indexer.setPower(0);
                 }
                 break;
 
-            case 2:
+            /*case 2:
                 if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
                     follower.followPath(paths.Path3, true);
                     setPathState(3);
@@ -583,7 +712,7 @@ public class closeAutoGatellFull extends LinearOpMode {
                     follower.followPath(paths.Path8, true);
                     setPathState(8);
                 }
-                break;
+                break;*/
 
             case 8:
                 if (!follower.isBusy() && pathTimer.getElapsedTime() > 100) {
@@ -609,21 +738,30 @@ public class closeAutoGatellFull extends LinearOpMode {
         public PathChain Path6;
         public PathChain Path7;
         public PathChain Path8;
+        public PathChain RESET;
 
-        public Paths(Follower follower) {
-            Path1 = follower.pathBuilder()
-                    .addPath(
-                            new BezierCurve(
-                                    new Pose(121.000, 123.000),
-                                    new Pose(57.000, 86.000),
-                                    new Pose(81.000, 49.000),
-                                    new Pose(96.000, 57.000),
-                                    new Pose(102.000, 59.000),
-                                    new Pose(126.000, 59.000)
-                            )
-                    )
-                    .addPoseCallback(new Pose(87,87), () -> follower.pausePathFollowing(), .5)
-                    .setLinearHeadingInterpolation(Math.toRadians(-42), Math.toRadians(0))
+        public Paths(Follower follower, hardwareSubNewBot h) {
+                Path1 = follower.pathBuilder()
+                        .addPath(
+                                new BezierCurve(
+                                        new Pose(125.000, 118.000),
+                                        new Pose(57.000, 86.000),
+                                        new Pose(83.012, 90.814),
+                                        new Pose(96.000, 57.000),
+                                        new Pose(102.000, 63.000),
+                                        new Pose(126.000, 63.000)
+                                )
+                        )
+
+                    .addTemporalCallback
+                        (1000,
+                        () -> {
+                        h.gate.setPosition(1);
+                        h.indexer.setPower(-1);
+                        h.intake.setPower(-1);
+                        h.swingArm.setPosition(.9);
+                        })
+                    .setLinearHeadingInterpolation(Math.toRadians(-23), Math.toRadians(0))
                     .build();
 
             Path2 = follower.pathBuilder()
@@ -697,6 +835,20 @@ public class closeAutoGatellFull extends LinearOpMode {
                             )
                     )
                     .setLinearHeadingInterpolation(Math.toRadians(307), Math.toRadians(270))
+                    .build();
+
+            RESET = follower.pathBuilder()
+                    .addPath(
+                            new BezierCurve(
+                                    new Pose(126.000, 63.000),
+                                    new Pose(57.000, 86.000),
+                                    new Pose(83.012, 90.814),
+                                    new Pose(96.000, 57.000),
+                                    new Pose(102.000, 63.000),
+                                    new Pose(125.000, 118.000)
+                            )
+                    )
+                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(-23))
                     .build();
         }
     }

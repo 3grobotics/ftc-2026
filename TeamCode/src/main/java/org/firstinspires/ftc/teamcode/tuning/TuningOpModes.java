@@ -123,7 +123,7 @@ public final class TuningOpModes {
         };
     }
 
-    //@OpModeRegistrar
+    @OpModeRegistrar
     public static void register(OpModeManager manager) {
         if (DISABLED) return;
 
@@ -187,12 +187,12 @@ public final class TuningOpModes {
                         MecanumDrive.PARAMS.maxProfileAccel,
                         encoderGroups,
                         Arrays.asList(
-                                md.leftFront,
-                                md.leftBack
+                                md.frontLeft,
+                                md.backLeft
                         ),
                         Arrays.asList(
-                                md.rightFront,
-                                md.rightBack
+                                md.frontRight,
+                                md.backRight
                         ),
                         leftEncs,
                         rightEncs,

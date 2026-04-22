@@ -6,12 +6,7 @@ import com.pedropathing.util.Timer;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.ColorSensor;
-import com.qualcomm.robotcore.hardware.ControlSystem;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
-import com.qualcomm.robotcore.hardware.Gamepad;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 import com.seattlesolvers.solverslib.photon.PhotonCore;
@@ -24,32 +19,29 @@ import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.VoltageUnit;
-import org.firstinspires.ftc.teamcode.Subsystems.hardwareSub;
 import org.firstinspires.ftc.teamcode.Subsystems.hardwareSubNewBot;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
 import org.firstinspires.ftc.teamcode.Subsystems.varSub;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.opencv.ImageRegion;
 import org.firstinspires.ftc.vision.opencv.PredominantColorProcessor;
-import static org.firstinspires.ftc.teamcode.pedroPathing.stateTeleOpRedNOTMODDED.farSlope;
 
-import java.util.Collection;
-
-@TeleOp(name = "ColorCamera 2")
-public class ColorCamera2 extends LinearOpMode {
+@TeleOp(name = "ColorCamera 2 shoot while move")
+public class ColorCamera2testingoldWithTread extends LinearOpMode {
+    private final ElapsedTime timer = new ElapsedTime();
+    private turretSub turret;
 
     public hardwareSubNewBot h;
     public varSub v;
     public Timer swingTimer;
 
-    private turretSub turretS;
-
-
+    private Thread upperThread = null;
+    private volatile boolean runThread = false;
 
     // --- PTO Control Variables (already a good state machine, kept as is) ---
-    private boolean ptoButtonWasPressed = false; // For debouncing the gamepad button
-    private boolean ptoIsEngaged = false;           // True if PTO is "on", false if "off"
-    private ElapsedTime ptoDeploymentTimer = new ElapsedTime();
+    private boolean ptoButtonWasPressed = false;
+    private boolean ptoIsEngaged = false;
+    private final ElapsedTime ptoDeploymentTimer = new ElapsedTime();
     private PtoDeploymentState currentPtoDeploymentState = PtoDeploymentState.RETRACTED;
 
     enum PtoDeploymentState {
@@ -70,87 +62,83 @@ public class ColorCamera2 extends LinearOpMode {
     private static final long PTO_DEPLOYMENT_DELAY_MS = 500;
     // --- END PTO Control Variables ---
 
-
-    // --- NEW Intake Control Variables (State Machine for Intake and related components) ---
+    // --- NEW Intake Control Variables ---
     private IntakeState currentIntakeState = IntakeState.IDLE;
-    private ElapsedTime intakeStateTimer = new ElapsedTime();
-    private int cycleSubStep = 0; // Used for multi-step cycles like single-note and till-color
+    private final ElapsedTime intakeStateTimer = new ElapsedTime();
+    private int cycleSubStep = 0;
 
     enum IntakeState {
         IDLE,
-        MANUAL_TRIGGERS_ACTIVE, // User holding triggers for intake/outtake
-        GATE_MANUAL_CONTROL,    // User holding dpad for gate position
+        MANUAL_TRIGGERS_ACTIVE,
+        GATE_MANUAL_CONTROL,
 
-        SINGLE_NOTE_CYCLE_INIT,     // Triggered by dpad_left
-        SINGLE_NOTE_CYCLE_STEP_1,   // Sickle out, swing down, gate open
-        SINGLE_NOTE_CYCLE_STEP_2,   // Intake/Indexer on
-        SINGLE_NOTE_CYCLE_STEP_3,   // Sickle to 0.9
-        SINGLE_NOTE_CYCLE_STEP_4,   // Gate to 0.85, swing to 0.2, intake off
-        SINGLE_NOTE_CYCLE_STEP_5,   // Intake 0.5, Indexer -1
-        SINGLE_NOTE_CYCLE_STEP_6,   // Indexer 1
-        SINGLE_NOTE_CYCLE_STEP_7,   // Gate to 0.65, Indexer off, Swing to 0.55, Intake -1
-        SINGLE_NOTE_CYCLE_STEP_8,   // Intake off, cycle complete
+        SINGLE_NOTE_CYCLE_INIT,
+        SINGLE_NOTE_CYCLE_STEP_1,
+        SINGLE_NOTE_CYCLE_STEP_2,
+        SINGLE_NOTE_CYCLE_STEP_3,
+        SINGLE_NOTE_CYCLE_STEP_4,
+        SINGLE_NOTE_CYCLE_STEP_5,
+        SINGLE_NOTE_CYCLE_STEP_6,
+        SINGLE_NOTE_CYCLE_STEP_7,
+        SINGLE_NOTE_CYCLE_STEP_8,
 
-        FIRING,                     // Triggered by right_bumper
-        FIRING_COMPLETE,            // Short delay after firing
+        FIRING,
+        FIRING_COMPLETE,
 
-        INTAKE_TILL_FULL_INIT,      // Triggered by gamepad1.ps
-        INTAKE_TILL_FULL_RUNNING,   // Actively intaking until sensors are full
+        INTAKE_TILL_FULL_INIT,
+        INTAKE_TILL_FULL_RUNNING,
 
-        INTAKE_TILL_COLOR_INIT,     // Generic init for color cycles
-        INTAKE_TILL_COLOR_SWING_RESET, // Swing arm up, 500ms delay, then start intake cycle steps
-        INTAKE_TILL_COLOR_STEP_1,   // Part of the full intake cycle for 'till color'
+        INTAKE_TILL_COLOR_INIT,
+        INTAKE_TILL_COLOR_SWING_RESET,
+        INTAKE_TILL_COLOR_STEP_1,
         INTAKE_TILL_COLOR_STEP_2,
         INTAKE_TILL_COLOR_STEP_3,
         INTAKE_TILL_COLOR_STEP_4,
         INTAKE_TILL_COLOR_STEP_5,
         INTAKE_TILL_COLOR_STEP_6,
         INTAKE_TILL_COLOR_STEP_7,
-        INTAKE_TILL_COLOR_STEP_8, // Cycle step 8, then check color and loop if not found
+        INTAKE_TILL_COLOR_STEP_8,
 
-        // Specific flags for which color processor to use during INTAKE_TILL_COLOR_RUNNING
-        INTAKE_TILL_PPG, // right_stick_button
-        INTAKE_TILL_PGP, // left_stick_button
-        INTAKE_TILL_GPP  // left_stick_button && right_stick_button
+        INTAKE_TILL_PPG,
+        INTAKE_TILL_PGP,
+        INTAKE_TILL_GPP
     }
 
-    // Debounce variables for intake controls (gamepad1)
     private boolean dpadLeftWasPressed = false;
     private boolean psWasPressed = false;
     private boolean rightBumperWasPressed = false;
     private boolean leftStickButtonWasPressed = false;
-    private boolean rightStickButtonWasPressed = false; // Changed from original to prevent immediate re-trigger
+    private boolean rightStickButtonWasPressed = false;
 
     double hpos;
     public static double samOffset;
-    public double samOffsetv;
 
+    double tx = -72;
+    double ty = 72;
+    double t = 1;
+    public static int var = 0;
 
-
-    /**
-     * This OpMode illustrates how to use a video source (camera) as a color sensor
-     */
+    VisionPortal myVisionPortal;
     @Override
     public void runOpMode() {
 
         /* these are the subsystems */
-        // In ColorCamera2.java, inside runOpMode(), after initializing turretS
         {
             h = new hardwareSubNewBot(hardwareMap);
             v = new varSub();
-            turretS = new turretSub(hardwareMap);
-            turretS.h = h; // Assign the initialized 'h' from ColorCamera2 to turretS's 'h'
-            turretS.v = v; // Assign the initialized 'v' from ColorCamera2 to turretS's 'v'
-        }
+            turret = new turretSub(hardwareMap);
 
+            // LINKING THE SUBSYSTEMS TO THE THREAD
+            turret.h = h;
+            turret.v = v;
+        }
 
         /* these are the timers */
         {
-            swingTimer = new Timer(); // Note: This timer is not used in the provided code, but kept.
+            swingTimer = new Timer();
         }
 
         /* this is the camera stuff */
-
         PredominantColorProcessor.Builder frontProcessorBuilder;
         PredominantColorProcessor.Builder middleProcessorBuilder;
         PredominantColorProcessor.Builder backProcessorBuilder;
@@ -158,13 +146,11 @@ public class ColorCamera2 extends LinearOpMode {
         PredominantColorProcessor frontPredominantColorProcessor;
         PredominantColorProcessor middlePredominantColorProcessor;
         PredominantColorProcessor backPredominantColorProcessor;
-        VisionPortal myVisionPortal;
-        PredominantColorProcessor.Result frontResult = null; // Initialize to null
-        PredominantColorProcessor.Result middleResult = null; // Initialize to null
-        PredominantColorProcessor.Result backResult = null;   // Initialize to null
 
+        PredominantColorProcessor.Result frontResult;
+        PredominantColorProcessor.Result middleResult ;
+        PredominantColorProcessor.Result backResult   ;
 
-        // Build a "Color Sensor" vision processor based on the PredominantColorProcessor class.
         frontProcessorBuilder = new PredominantColorProcessor.Builder();
         middleProcessorBuilder = new PredominantColorProcessor.Builder();
         backProcessorBuilder = new PredominantColorProcessor.Builder();
@@ -215,30 +201,21 @@ public class ColorCamera2 extends LinearOpMode {
             telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE);
         }
 
-        // Initialize digital sensor mode (should be done once)
         h.topDistSensor.setMode(DigitalChannel.Mode.INPUT);
-        h.midDistSensor.setMode(DigitalChannel.Mode.INPUT); // Assuming these exist
-        h.frontDistSensor.setMode(DigitalChannel.Mode.INPUT); // Assuming these exist
+        h.midDistSensor.setMode(DigitalChannel.Mode.INPUT);
+        h.frontDistSensor.setMode(DigitalChannel.Mode.INPUT);
 
-        // Set initial positions for intake-related servos and motors
-        h.sickle.setPosition(1.0);     // Default: up/retracted
-        h.gate.setPosition(0.65);      // Default: closed/intake pos
-        h.swingArm.setPosition(1.0);   // Default: up/retracted - This initial setting is fine, as it ensures a known starting state.
+        h.sickle.setPosition(1.0);
+        h.gate.setPosition(0.65);
+        h.swingArm.setPosition(1.0);
         h.intake.setPower(0);
         h.indexer.setPower(0);
 
 
-        // Gamepad debounce variables for turret trim (gamepad2)
         boolean left = gamepad2.dpad_left;
         boolean right = gamepad2.dpad_right;
         boolean prevleft = left;
         boolean prevright = right;
-
-        boolean up = gamepad2.dpad_up;
-        boolean down = gamepad2.dpad_down;
-
-        boolean prevUp = up;
-        boolean prevDown = down;
 
         boolean aa = gamepad2.a;
         boolean bb = gamepad2.b;
@@ -249,164 +226,75 @@ public class ColorCamera2 extends LinearOpMode {
         PhotonCore.PARALLELIZE_SERVOS = true;
         PhotonCore.enable();
 
-        float motif = 111;
+        double robotX;
+        double robotY;
+        double xl;
+        double yl;
+        double hypot;
+
+        double vx;
+        double vy;
+        double vTarget                   = 0;
+        double fl                           ;
+        double fr                           ;
+        double bl                           ;
+        double br                           ;
+        double max                          ;
+
+        boolean currentDpadLeft             ;
+        boolean currentPs                   ;
+        boolean currentRightBumper          ;
+        boolean currentRightStickButton     ;
+        boolean currentLeftStickButton      ;
+        double lift                         ;
+        double distanceIn                   ;
+        double velocityreal                 ;
+        double velDiff                      ;
+
         waitForStart();
+
+        if(isStopRequested()) return;
+
+        startTurretControlThread();
+        timer.reset();
+
         while (opModeIsActive()) {
 
-
-            Gamepad.LedEffect motif112Effect = new Gamepad.LedEffect.Builder()
-                    .addStep(255, 0, 255, 400) //purple
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 255, 400) //purple
-                    .addStep(0, 0, 0, 100)
-                    .addStep(0, 255, 0, 400)   //green
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 0, 500)   //red
-                    .addStep(0, 0, 0, 400)     //pause
-                    .setRepeating(true)
-                    .build();
-
-            Gamepad.LedEffect motif121Effect = new Gamepad.LedEffect.Builder()
-                    .addStep(255, 0, 255, 400) //purple
-                    .addStep(0, 0, 0, 100)
-                    .addStep(0, 255, 0, 400)   //green
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 255, 400) //purple
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 0, 500)   //red
-                    .addStep(0, 0, 0, 400)     //pause
-                    .setRepeating(true)
-                    .build();
-
-            Gamepad.LedEffect motif211Effect = new Gamepad.LedEffect.Builder()
-                    .addStep(0, 255, 0, 400)   //green
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 255, 400) //purple
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 255, 400) //purple
-                    .addStep(0, 0, 0, 100)
-                    .addStep(255, 0, 0, 500)   //red
-                    .addStep(0, 0, 0, 400)     //pause
-                    .setRepeating(true)
-                    .build();
-
-            if (gamepad2.left_bumper){
-
-                if (gamepad2.x){
-                    motif = 211;
-                    gamepad2.runLedEffect(motif211Effect);
-                } else if (gamepad2.a){
-                    motif = 121;
-                    gamepad2.runLedEffect(motif121Effect);
-                } else if (gamepad2.b){
-                    motif = 112;
-                    gamepad2.runLedEffect(motif112Effect);
-                }
-
-            }
-
-            // motif + 0
-            if (gamepad2.x){
-                if (motif == 211){
-                    // sort to 211
-                }
-
-                if (motif == 121){
-                    // sort to 121
-                }
-
-                if (motif == 112){
-                    // sort to 112
-                }
-
-
-            }
-
-            // motif + 1
-            if (gamepad2.a){
-                if (motif == 211){
-                    // sort to 121
-                }
-
-                if (motif == 121){
-                    // sort to 112
-                }
-
-                if (motif == 112){
-                    // sort to 211
-                }
-            }
-
-            // motif + 2
-            if (gamepad2.a){
-                if (motif == 211){
-                    // sort to 112
-                }
-
-                if (motif == 121){
-                    // sort to 211
-                }
-
-                if (motif == 112){
-                    // sort to 121
-                }
-            }
-
-
-
+            h.pip.update();
+            turret.runTurret();
 
             telemetry.addData("photon volts aux", PhotonCore.CONTROL_HUB.getAuxiliaryVoltage(VoltageUnit.VOLTS));
             telemetry.addData("photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS));
-            telemetry.addData("expantion photon amps ", PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            telemetry.addData("expansion photon amps ", PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
             telemetry.addData("total photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS) + PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
             telemetry.addData("photon info ", PhotonCore.CONTROL_HUB.getConnectionInfo());
-
-
-            //PhotonCore.CONTROL_HUB.setConstant(8388736);
-            //PhotonCore.EXPANSION_HUB.setConstant(8388736);
-
-
-            try {
-                Thread.sleep(20);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-
 
             frontResult = frontPredominantColorProcessor.getAnalysis();
             middleResult = middlePredominantColorProcessor.getAnalysis();
             backResult = backPredominantColorProcessor.getAnalysis();
 
-
-
             // =========================================================================
             // NEW INTAKE STATE MACHINE LOGIC
             // =========================================================================
 
-            // Debounce gamepad1 buttons for intake control
-            boolean currentDpadLeft = gamepad1.dpad_left;
-            boolean currentPs = gamepad1.ps;
-            boolean currentRightBumper = gamepad1.right_bumper;
-            boolean currentRightStickButton = gamepad1.right_stick_button;
-            boolean currentLeftStickButton = gamepad1.left_stick_button;
+            currentDpadLeft         = gamepad1.dpad_left;
+            currentPs               = gamepad1.ps;
+            currentRightBumper      = gamepad1.right_bumper;
+            currentRightStickButton = gamepad1.right_stick_button;
+            currentLeftStickButton  = gamepad1.left_stick_button;
 
-            // State transition logic from IDLE or by interrupting certain states
-            // Prioritize specific multi-button or complex actions over simpler ones.
-            // If currently in an active intake state, new button presses might override or be ignored.
             if (currentIntakeState == IntakeState.IDLE || currentIntakeState == IntakeState.MANUAL_TRIGGERS_ACTIVE || currentIntakeState == IntakeState.GATE_MANUAL_CONTROL) {
                 if (currentLeftStickButton && currentRightStickButton && !leftStickButtonWasPressed && !rightStickButtonWasPressed) {
-                    // Corrected priority: Most specific combination first
                     currentIntakeState = IntakeState.INTAKE_TILL_GPP;
-                    cycleSubStep = 0; // Reset sub-step for the new cycle
+                    cycleSubStep = 0;
                     intakeStateTimer.reset();
                 } else if (currentRightStickButton && !rightStickButtonWasPressed) {
                     currentIntakeState = IntakeState.INTAKE_TILL_PPG;
-                    cycleSubStep = 0; // Reset sub-step for the new cycle
+                    cycleSubStep = 0;
                     intakeStateTimer.reset();
                 } else if (currentLeftStickButton && !leftStickButtonWasPressed) {
                     currentIntakeState = IntakeState.INTAKE_TILL_PGP;
-                    cycleSubStep = 0; // Reset sub-step for the new cycle
+                    cycleSubStep = 0;
                     intakeStateTimer.reset();
                 } else if (currentPs && !psWasPressed) {
                     currentIntakeState = IntakeState.INTAKE_TILL_FULL_INIT;
@@ -414,22 +302,19 @@ public class ColorCamera2 extends LinearOpMode {
                 } else if (currentDpadLeft && !dpadLeftWasPressed) {
                     currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_INIT;
                     intakeStateTimer.reset();
-                } else if (currentRightBumper && !rightBumperWasPressed) { // Only transition to FIRING on initial press
+                } else if (currentRightBumper && !rightBumperWasPressed) {
                     currentIntakeState = IntakeState.FIRING;
-                    // No timer reset here; FIRING is sustained as long as button is held
                 } else {
-                    // Manual controls (triggers or gate dpad) if no other sequence is active
                     double intakeCmd = (gamepad1.right_trigger + gamepad2.right_trigger) - (gamepad1.left_trigger + gamepad2.left_trigger);
                     if (Math.abs(intakeCmd) > 0.1) {
                         currentIntakeState = IntakeState.MANUAL_TRIGGERS_ACTIVE;
                     } else if (gamepad1.dpad_right || gamepad1.dpad_down || gamepad1.dpad_up) {
                         currentIntakeState = IntakeState.GATE_MANUAL_CONTROL;
-                    } else if (currentIntakeState != IntakeState.IDLE) { // Ensure idle if no input, AND not already in an active non-manual state
+                    } else if (currentIntakeState != IntakeState.IDLE) {
                         currentIntakeState = IntakeState.IDLE;
                     }
                 }
             }
-            // Update debounce variables
             dpadLeftWasPressed = currentDpadLeft;
             psWasPressed = currentPs;
             rightBumperWasPressed = currentRightBumper;
@@ -437,26 +322,23 @@ public class ColorCamera2 extends LinearOpMode {
             leftStickButtonWasPressed = currentLeftStickButton;
 
 
-            // Execute current intake state logic
             switch (currentIntakeState) {
                 case IDLE:
-                    // Default positions when nothing is active
                     h.intake.setPower(0);
                     h.indexer.setPower(0);
                     h.sickle.setPosition(.85);
-                    // h.swingArm.setPosition(1.0); // Allow swingArm to retain its last position when idle unless another state sets it
-                    h.gate.setPosition(0.65); // Default closed/intake position
+                    h.gate.setPosition(0.65);
                     break;
 
                 case MANUAL_TRIGGERS_ACTIVE:
                     double intakeCmd = (gamepad1.right_trigger + gamepad2.right_trigger) - (gamepad1.left_trigger + gamepad2.left_trigger);
                     h.intake.setPower(-intakeCmd);
                     h.indexer.setPower(-intakeCmd);
-                    h.swingArm.setPosition(.65); // Move swing arm for manual intake
-                    h.gate.setPosition(.65);    // Set gate for manual intake
+                    h.swingArm.setPosition(.65);
+                    h.gate.setPosition(.65);
 
-                    if (Math.abs(intakeCmd) < 0.1) { // Triggers released
-                        currentIntakeState = IntakeState.IDLE; // Transition to IDLE, swingArm stays at .6
+                    if (Math.abs(intakeCmd) < 0.1) {
+                        currentIntakeState = IntakeState.IDLE;
                     }
                     break;
 
@@ -467,16 +349,13 @@ public class ColorCamera2 extends LinearOpMode {
                         h.gate.setPosition(0.65);
                     } else if (gamepad1.dpad_up) {
                         h.gate.setPosition(1);
-                    } else { // No dpad for gate pressed
+                    } else {
                         currentIntakeState = IntakeState.IDLE;
                     }
-                    // For manual gate control, the swing arm should probably stay put or return to a default position
-                    // Currently, it will retain its position from prior states. If you want it retracted here, add:
-                    // h.swingArm.setPosition(1.0);
                     break;
 
                 case SINGLE_NOTE_CYCLE_INIT:
-                     h.sickle.setPosition(0.7);
+                    h.sickle.setPosition(0.7);
                     h.swingArm.setPosition(0.55);
                     h.gate.setPosition(0.82);
                     intakeStateTimer.reset();
@@ -490,13 +369,13 @@ public class ColorCamera2 extends LinearOpMode {
                     }
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_2:
-                    if (intakeStateTimer.milliseconds() > 500) { // Cumulative time
-                         h.sickle.setPosition(.75);
+                    if (intakeStateTimer.milliseconds() > 500) {
+                        h.sickle.setPosition(.75);
                         currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_3;
                     }
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_3:
-                    if (intakeStateTimer.milliseconds() > 750) { // Cumulative time
+                    if (intakeStateTimer.milliseconds() > 750) {
                         h.gate.setPosition(0.85);
                         h.swingArm.setPosition(0.2);
                         h.intake.setPower(0);
@@ -504,20 +383,20 @@ public class ColorCamera2 extends LinearOpMode {
                     }
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_4:
-                    if (intakeStateTimer.milliseconds() > 1000) { // Cumulative time
+                    if (intakeStateTimer.milliseconds() > 1000) {
                         h.intake.setPower(0.5);
                         h.indexer.setPower(-1);
                         currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_5;
                     }
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_5:
-                    if (intakeStateTimer.milliseconds() > 1200) { // Cumulative time
+                    if (intakeStateTimer.milliseconds() > 1200) {
                         h.indexer.setPower(1);
                         currentIntakeState = IntakeState.SINGLE_NOTE_CYCLE_STEP_6;
                     }
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_6:
-                    if (intakeStateTimer.milliseconds() > 1300) { // Cumulative time
+                    if (intakeStateTimer.milliseconds() > 1300) {
                         h.gate.setPosition(0.65);
                         h.indexer.setPower(0);
                         h.swingArm.setPosition(0.55);
@@ -526,7 +405,7 @@ public class ColorCamera2 extends LinearOpMode {
                     }
                     break;
                 case SINGLE_NOTE_CYCLE_STEP_7:
-                    if (intakeStateTimer.milliseconds() > 1400) { // Cumulative time
+                    if (intakeStateTimer.milliseconds() > 1400) {
                         h.intake.setPower(0);
                         currentIntakeState = IntakeState.IDLE;
                     }
@@ -537,19 +416,17 @@ public class ColorCamera2 extends LinearOpMode {
                     h.indexer.setPower(-1);
                     h.intake.setPower(-1);
                     h.swingArm.setPosition(.95);
-                    // Firing is active as long as the button is held.
-                    if (!gamepad1.right_bumper) { // Button released
+                    if (!gamepad1.right_bumper) {
                         currentIntakeState = IntakeState.FIRING_COMPLETE;
-                        intakeStateTimer.reset(); // Start timer for cleanup
+                        intakeStateTimer.reset();
                     }
                     break;
                 case FIRING_COMPLETE:
-                    // Reset to idle after a short delay to ensure components return
                     h.intake.setPower(0);
                     h.indexer.setPower(0);
-                    h.swingArm.setPosition(1.0); // Retract swing arm after firing
-                    h.gate.setPosition(0.65); // Return gate to default closed/intake position
-                    if (intakeStateTimer.milliseconds() > 200) { // Short delay for components to return
+                    h.swingArm.setPosition(1.0);
+                    h.gate.setPosition(0.65);
+                    if (intakeStateTimer.milliseconds() > 200) {
                         currentIntakeState = IntakeState.IDLE;
                     }
                     break;
@@ -558,71 +435,64 @@ public class ColorCamera2 extends LinearOpMode {
                     h.gate.setPosition(0.65);
                     h.intake.setPower(-1);
                     h.indexer.setPower(-1);
-                    h.sickle.setPosition(1.0); // Ensure sickle is up for general intake
-                    h.swingArm.setPosition(0.6); // Lower swing arm for intake
+                    h.sickle.setPosition(1.0);
+                    h.swingArm.setPosition(0.6);
                     currentIntakeState = IntakeState.INTAKE_TILL_FULL_RUNNING;
                     break;
                 case INTAKE_TILL_FULL_RUNNING:
-                    // Stop if ALL sensors detect something (assuming getState() is true for detection)
                     if (h.topDistSensor.getState() && h.midDistSensor.getState() && h.frontDistSensor.getState()) {
                         h.intake.setPower(0);
                         h.indexer.setPower(0);
                         currentIntakeState = IntakeState.IDLE;
                     } else {
-                        // Continue intaking
                         h.intake.setPower(-1);
                         h.indexer.setPower(-1);
                     }
                     break;
 
-                // --- INTAKE TILL COLOR STATES (PPG, PGP, GPP) ---
-                // These states cycle through a full intake sequence, then check for color, and repeat if not found.
-                // The 'INIT' state sets up the first cycle step.
                 case INTAKE_TILL_PPG:
                 case INTAKE_TILL_PGP:
                 case INTAKE_TILL_GPP:
                     PredominantColorProcessor.Swatch targetSwatch = PredominantColorProcessor.Swatch.ARTIFACT_GREEN;
-                    PredominantColorProcessor.Result checkResult = null;
+                    PredominantColorProcessor.Result checkResult;
 
                     if (currentIntakeState == IntakeState.INTAKE_TILL_PPG) {
-                        //checkResult = frontResult;
+                        checkResult = frontResult;
                     } else if (currentIntakeState == IntakeState.INTAKE_TILL_PGP) {
-                        //checkResult = middleResult;
-                    } else { // INTAKE_TILL_GPP
-                        //checkResult = backResult;
+                        checkResult = middleResult;
+                    } else {
+                        checkResult = backResult;
                     }
 
-                    // Always check color at the beginning of each full cycle attempt
                     if (checkResult != null && checkResult.closestSwatch.equals(targetSwatch)) {
                         h.intake.setPower(0);
                         h.indexer.setPower(0);
-                        h.swingArm.setPosition(1); // Final reset position
-                        cycleSubStep = 0; // Reset for next time
+                        h.swingArm.setPosition(1);
+                        cycleSubStep = 0;
                         currentIntakeState = IntakeState.IDLE;
-                        break; // Exit state execution
+                        break;
                     }
 
-                    // If color not found, proceed with the internal cycle steps
                     switch (cycleSubStep) {
-                        case 0: // Initial swing arm reset (from previous cycle or start)
+                        case 0:
                             h.swingArm.setPosition(1);
-                            h.sickle.setPosition(1); // Ensure sickle is up during reset
-                            h.gate.setPosition(0.65); // Ensure gate is default
+                            h.sickle.setPosition(1);
+                            h.gate.setPosition(0.65);
                             h.intake.setPower(0);
                             h.indexer.setPower(0);
-                            intakeStateTimer.reset(); // Reset timer for this step
+                            intakeStateTimer.reset();
                             cycleSubStep = 1;
                             break;
-                        case 1: // Wait for swing arm reset delay (500ms from original sleep)
+                        case 1:
                             if (intakeStateTimer.milliseconds() > 500) {
-                                 h.sickle.setPosition(0.8);
+                                h.sickle.setPosition(0.8);
                                 h.swingArm.setPosition(0.6);
                                 h.gate.setPosition(0.82);
                                 intakeStateTimer.reset();
                                 cycleSubStep = 2;
                             }
                             break;
-                        case 2: // Wait for 250ms then intake on
+                        case 2:
                             if (intakeStateTimer.milliseconds() > 250) {
                                 h.intake.setPower(-1);
                                 h.indexer.setPower(-1);
@@ -630,14 +500,14 @@ public class ColorCamera2 extends LinearOpMode {
                                 cycleSubStep = 3;
                             }
                             break;
-                        case 3: // Wait for 250ms then sickle to 0.9
+                        case 3:
                             if (intakeStateTimer.milliseconds() > 250) {
-                                 h.sickle.setPosition(0.75);
+                                h.sickle.setPosition(0.75);
                                 intakeStateTimer.reset();
                                 cycleSubStep = 4;
                             }
                             break;
-                        case 4: // Wait for 250ms then gate 0.85, swing 0.2, intake off
+                        case 4:
                             if (intakeStateTimer.milliseconds() > 250) {
                                 h.gate.setPosition(0.85);
                                 h.swingArm.setPosition(0.2);
@@ -646,7 +516,7 @@ public class ColorCamera2 extends LinearOpMode {
                                 cycleSubStep = 5;
                             }
                             break;
-                        case 5: // Wait for 250ms then intake 0.5, indexer -1
+                        case 5:
                             if (intakeStateTimer.milliseconds() > 250) {
                                 h.intake.setPower(0.5);
                                 h.indexer.setPower(-1);
@@ -654,14 +524,14 @@ public class ColorCamera2 extends LinearOpMode {
                                 cycleSubStep = 6;
                             }
                             break;
-                        case 6: // Wait for 200ms then indexer 1
+                        case 6:
                             if (intakeStateTimer.milliseconds() > 200) {
                                 h.indexer.setPower(1);
                                 intakeStateTimer.reset();
                                 cycleSubStep = 7;
                             }
                             break;
-                        case 7: // Wait for 100ms then gate 0.65, indexer 0, swing 0.6, intake -1
+                        case 7:
                             if (intakeStateTimer.milliseconds() > 100) {
                                 h.gate.setPosition(0.65);
                                 h.indexer.setPower(0);
@@ -671,18 +541,16 @@ public class ColorCamera2 extends LinearOpMode {
                                 cycleSubStep = 8;
                             }
                             break;
-                        case 8: // Wait for 100ms then intake off. Cycle complete, loop back to check color.
+                        case 8:
                             if (intakeStateTimer.milliseconds() > 100) {
                                 h.intake.setPower(0);
-                                cycleSubStep = 0; // Reset sub-step to re-enter case 0 and do swing arm reset and color check
+                                cycleSubStep = 0;
                             }
                             break;
                     }
                     break;
             }
-            // --- END NEW INTAKE STATE MACHINE LOGIC ---
 
-            // --- PTO Control Logic (kept as is, it's already a non-blocking state machine) ---
             if (gamepad1.options && !ptoButtonWasPressed) {
                 ptoIsEngaged = !ptoIsEngaged;
                 ptoButtonWasPressed = true;
@@ -736,21 +604,20 @@ public class ColorCamera2 extends LinearOpMode {
                     currentPtoDeploymentState = PtoDeploymentState.RETRACTED;
                     break;
             }
-            // --- END PTO Control Logic ---
-            double distanceIn = h.revDist.getDistance(DistanceUnit.INCH);
+            distanceIn = h.revDist.getDistance(DistanceUnit.INCH);
 
             v.axial = -gamepad1.left_stick_y;
             v.lateral = gamepad1.left_stick_x;
             v.yawCmd = gamepad1.right_stick_x;
 
-            double fl = v.axial + v.lateral + v.yawCmd;
-            double fr = v.axial - v.lateral - v.yawCmd;
-            double bl = v.axial - v.lateral + v.yawCmd;
-            double br = v.axial + v.lateral - v.yawCmd;
+            fl = v.axial + v.lateral + v.yawCmd;
+            fr = v.axial - v.lateral - v.yawCmd;
+            bl = v.axial - v.lateral + v.yawCmd;
+            br = v.axial + v.lateral - v.yawCmd;
 
-            double max = Math.max(1.0, Math.max(Math.abs(fl), Math.max(Math.abs(fr), Math.max(Math.abs(bl), Math.abs(br)))));
+            max = Math.max(1.0, Math.max(Math.abs(fl), Math.max(Math.abs(fr), Math.max(Math.abs(bl), Math.abs(br)))));
 
-            double lift = 0;
+
             if (gamepad1.touchpad) {
                 lift = 1;
             } else {
@@ -782,24 +649,6 @@ public class ColorCamera2 extends LinearOpMode {
                 h.backRight.setPower(br / max);
             }
 
-
-            h.pip.update();
-
-
-
-
-
-
-
-
-            double robotX = h.pip.getPosX(DistanceUnit.INCH);
-            double robotY = h.pip.getPosY(DistanceUnit.INCH);
-
-            double xl = v.tx - robotX;
-            double yl = v.ty - robotY;
-            double hypot = Math.sqrt((xl * xl) + (yl * yl));
-
-            // Gamepad trim logic
             left = gamepad2.dpad_left;
             right = gamepad2.dpad_right;
 
@@ -826,16 +675,6 @@ public class ColorCamera2 extends LinearOpMode {
             prevaa = aa;
             prevbb = bb;
 
-
-            // Turret reset with gamepad1.ps || gamepad2.ps, but only if intake isn't using gamepad1.ps
-            // Original code didn't have this condition, but it's good for prioritization.
-            if ((gamepad1.ps && !psWasPressed) || gamepad2.ps) { // Added !psWasPressed to prioritize intake state change
-               turretS.setStraight();
-            } else {
-               turretS.runTurret();
-
-            }
-
             if (gamepad1.dpad_up) {
                 h.pip.setPosition(new Pose2D(DistanceUnit.INCH, -68.02, 36, AngleUnit.DEGREES, 180));
                 samOffset = 0;
@@ -843,96 +682,12 @@ public class ColorCamera2 extends LinearOpMode {
                 h.pip.resetPosAndIMU();
                 samOffset = 0;
             }
-            turretS.loop();
 
-
-            // =========================================================================
-            //  HOOD LINEAR REGRESSION
-            // =========================================================================
-            {
-                if (hypot < 130) {
-
-                double d1 = 53, d2 = 95;
-                double v1 = .7, v2 = .2;
-                double slope = (v2 - v1) / (d2 - d1);
-                hpos = v1 + (slope * (hypot - d1));
-                } else {
-                    // Zone: Far
-                    double d1 = 132.5, d2 = 158;
-                    double v1 = 0, v2 = 0;
-                    double slope = (v2 - v1) / (d2 - d1);
-                    hpos = v1 + (slope * (hypot - d1));
-                }
-
-                h.hood.setPosition(Range.clip(hpos, 0, .7)); }
-
-            // =========================================================================
-            //  FLYWHEEL LINEAR REGRESSION
-            // =========================================================================
-            double vTarget;
-            if (hypot < 130) {
-
-            double d1 = 53, d2 = 95;
-            double v1 = 1450, v2 = 1960;
-            double slope = (v2 - v1) / (d2 - d1);
-            vTarget = 1200 + (slope * (hypot - d1));
-            } else {
-                // Zone: Far
-                double d1 = 132.5, d2 = 158;
-                double v1 = 2330, v2 = 2430;
-                double slope = (v2 - v1) / (d2 - d1);
-                vTarget = 2300 + (slope * (hypot - d1));
+            if (gamepad1.x) {
+                var = 1;
+            } else if (gamepad1.y) {
+                var = 0;
             }
-            vTarget = Range.clip(vTarget, 0, 5000); // Adjust max based on motor
-
-
-            up = gamepad2.dpad_up;
-            down = gamepad2.dpad_down;
-
-
-            if (up && !prevUp && !down) {
-                samOffsetv = Range.clip(samOffsetv + 50, -2000, 2000);
-            }
-            if (down && !prevDown && !up) {
-                samOffsetv = Range.clip(samOffsetv - 50, -2000, 2000);
-            }
-
-            prevUp = up;
-            prevDown = down;
-
-              double finalvTarget = ((vTarget * 37.333) / 60 ) + samOffsetv;
-
-
-            /* flywheel turn on/off */
-            {
-                if (gamepad1.x) {
-                    v.var = 1;
-                } else if (gamepad1.y) {
-                    v.var = 0;
-                }
-
-                if (v.var == 1) {
-                    h.flywheel1.setVelocity(finalvTarget);
-                    h.flywheel2.setVelocity(finalvTarget);
-                } else {
-                    h.flywheel1.setVelocity(0);
-                    h.flywheel2.setVelocity(0);
-                }
-            }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             telemetry.addData("Best Match front", frontResult != null ? frontResult.closestSwatch : "N/A");
             telemetry.addData("Best Match middle", middleResult != null ? middleResult.closestSwatch : "N/A");
@@ -945,29 +700,55 @@ public class ColorCamera2 extends LinearOpMode {
 
             telemetry.addData("distance in", distanceIn);
 
-            telemetry.addData("x leg", xl);
-            telemetry.addData("goalHeight leg", yl);
-            telemetry.addData("hypot", hypot);
-            telemetry.addData("RPM flywheel 1", "%.3f", ((h.flywheel1.getVelocity() * 60) / 37.333));
-            telemetry.addData("RPM flywheel 2", "%.3f", ((h.flywheel2.getVelocity() * 60) / 37.333));
-            telemetry.addData("vel ticks flywheel 1", "%.3f", (h.flywheel1.getVelocity()));
-            telemetry.addData("vel ticks flywheel 2", "%.3f", (h.flywheel2.getVelocity()));
+            telemetry.addData("t", t);
+            telemetry.addData("tx", tx);
+            telemetry.addData("ty", ty);
+            telemetry.addData("vTarget", vTarget);
+            telemetry.addData("hpos", hpos);
+
+            // READING FROM THREAD VARIABLES FOR TELEMETRY
+            telemetry.addData("RPM flywheel 1", "%.3f", ((turret.currentFly1Vel * 60) / 37.333));
+            telemetry.addData("RPM flywheel 2", "%.3f", ((turret.currentFly2Vel * 60) / 37.333));
+            telemetry.addData("vel ticks flywheel 1", "%.3f", (turret.currentFly1Vel));
+            telemetry.addData("vel ticks flywheel 2", "%.3f", (turret.currentFly2Vel));
             telemetry.addData("pip x in", h.pip.getPosX(DistanceUnit.INCH));
             telemetry.addData("heading", h.pip.getHeading(AngleUnit.DEGREES));
             telemetry.addData("pip goalHeight in", h.pip.getPosY(DistanceUnit.INCH));
-            telemetry.addData("turret1", h.turret1.getPosition());
-            telemetry.addData("turret2", h.turret2.getPosition());
+            telemetry.addData("turret1", turret.currentTurretCommand);
+            telemetry.addData("turret2", turret.currentTurretCommand);
+
             telemetry.addData("PTO State", currentPtoDeploymentState.name());
             telemetry.addData("Intake State", currentIntakeState.name());
-
-
             if (currentIntakeState == IntakeState.INTAKE_TILL_PPG || currentIntakeState == IntakeState.INTAKE_TILL_PGP || currentIntakeState == IntakeState.INTAKE_TILL_GPP) {
                 telemetry.addData("Cycle Sub-Step", cycleSubStep);
             }
 
-            //PhotonCore.CONTROL_HUB.clearBulkCache();
-            //PhotonCore.EXPANSION_HUB.clearBulkCache();
+            // Removed conflicting clearBulkCache() calls
             telemetry.update();
         }
+        runThread = false;
+
+        if (upperThread != null) {
+            upperThread.interrupt();
+        }
+    }
+
+    private void startTurretControlThread() {
+        if (runThread) return;
+        runThread = true;
+
+        upperThread = new Thread(() -> {
+            while (runThread && !isStopRequested()) {
+                turret.loop();
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+
+        upperThread.start();
     }
 }

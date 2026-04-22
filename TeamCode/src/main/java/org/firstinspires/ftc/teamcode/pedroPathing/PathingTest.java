@@ -97,7 +97,7 @@ public class PathingTest extends LinearOpMode {
         private class flywheelUp implements Action {
             @Override public boolean run(@NonNull TelemetryPacket p) {
                 hood.setPosition(1);
-                turretSub.turretFarFire();
+                //turretSub.turretFarFire();
                 flywheel1.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
                 flywheel2.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, new PIDFCoefficients(400, 0, 0, 200));
                 flywheel1.setVelocity(1800);

@@ -278,14 +278,12 @@ class LateralTuner extends OpMode {
  */
 class TurnTuner extends OpMode {
     public static double ANGLE = 2 * Math.PI;
-
     @Override
     public void init() {
         follower.setStartingPose(new Pose(72,72));
         follower.update();
         drawOnlyCurrent();
     }
-
     /** This initializes the PoseUpdater as well as the Panels telemetry. */
     @Override
     public void init_loop() {
