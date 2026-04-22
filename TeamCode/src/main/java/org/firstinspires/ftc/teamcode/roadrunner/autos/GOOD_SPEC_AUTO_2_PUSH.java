@@ -329,9 +329,9 @@ public class GOOD_SPEC_AUTO_2_PUSH extends LinearOpMode {
                 .build();
 
         Action turretRun = new turret(hardwareMap).sigmaSkibidiClip(-72,72);
-        Action shlorp = new intake(hardwareMap).intakeIn();
-        Action bleh = new intake(hardwareMap).intakeOut();
-        Action pew = new intake(hardwareMap).fire();
+        Action intake = new intake(hardwareMap).intakeIn();
+        Action outtake = new intake(hardwareMap).intakeOut();
+        Action fire = new intake(hardwareMap).fire();
 
         waitForStart();
 
@@ -347,7 +347,7 @@ public class GOOD_SPEC_AUTO_2_PUSH extends LinearOpMode {
                                        // this is where everything goes
                                        new ParallelAction(
                                        preloadScore,
-                                       pew
+                                       fire
                                        )
                                )
                        )
