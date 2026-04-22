@@ -191,7 +191,7 @@ public class teleopRedMatts extends LinearOpMode {
         while (opModeInInit()){
             odo.update();
             telemetry.addData("odo x", odo.getPosX(DistanceUnit.INCH));
-            telemetry.addData("odo y", odo.getPosY(DistanceUnit.INCH));
+            telemetry.addData("odo goalHeight", odo.getPosY(DistanceUnit.INCH));
 
             telemetry.update();
         }
@@ -497,7 +497,7 @@ public class teleopRedMatts extends LinearOpMode {
                 telemetry.addData("Turret Offset", "%.1f", debugTurretOffset);
                 telemetry.addData("Loop Time", "%.1f ms", loopTime * 1000);
                 telemetry.addData("odo x", odo.getPosX(DistanceUnit.INCH));
-                telemetry.addData("odo y", odo.getPosY(DistanceUnit.INCH));
+                telemetry.addData("odo goalHeight", odo.getPosY(DistanceUnit.INCH));
                 telemetry.update();
             }
         }
@@ -517,7 +517,7 @@ public class teleopRedMatts extends LinearOpMode {
     }
 
     public static double getHoodTicksFromDegrees(double degrees) {
-        // Linear regression: y = .025x - .875
+        // Linear regression: goalHeight = .025x - .875
         return .025 * degrees - .875;
     }
 }

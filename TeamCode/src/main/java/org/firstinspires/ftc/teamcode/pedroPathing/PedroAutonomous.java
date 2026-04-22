@@ -17,7 +17,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.Subsystems.intakeSub;
 import org.firstinspires.ftc.teamcode.Subsystems.turretSub;
 
-@Autonomous(name = "Daryl Pathing Autonomous", group = "Autonomous")
+@Autonomous(name = "path test", group = "Autonomous")
 @Configurable // Panels
 public class PedroAutonomous extends OpMode {
 
@@ -31,9 +31,6 @@ public class PedroAutonomous extends OpMode {
     private Paths paths;                        // path definitions
 
     private Timer pathTimer, actionTimer, opmodeTimer;
-    private DcMotorEx intake, flywheel1, flywheel2, gecko;
-    public turretSub turretSub;
-    public intakeSub intakeSub;
 
 
 
@@ -43,14 +40,9 @@ public class PedroAutonomous extends OpMode {
         panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
 
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(new Pose(96, 8, Math.toRadians(90)));
+        follower.setStartingPose(new Pose(124.000, 120.000, Math.toRadians(-42)));
 
         paths = new Paths(follower);
-
-        intake        = hardwareMap.get(DcMotorEx.class, "intake");
-        flywheel1     = hardwareMap.get(DcMotorEx.class, "flywheel1");
-        flywheel2     = hardwareMap.get(DcMotorEx.class, "flywheel2");
-        gecko         = hardwareMap.get(DcMotorEx.class, "gecko");
 
 
         // Timers MUST exist before you can reset them
@@ -64,8 +56,7 @@ public class PedroAutonomous extends OpMode {
 
         panelsTelemetry.debug("Status", "Initialized");
         panelsTelemetry.update(telemetry);
-        turretSub = new turretSub(hardwareMap);
-        intakeSub = new intakeSub(hardwareMap);
+
 
     }
 
@@ -99,28 +90,21 @@ public class PedroAutonomous extends OpMode {
     public void autonomousPathUpdate() {
         switch (pathState) {
             case 0:
+
                 follower.followPath(paths.Path1, true);
-                flywheel1.setVelocity(1800);
-                flywheel2.setVelocity(1800);
+
+
                 setPathState(1);
                 break;
 
             case 1:
                 if (!follower.isBusy()) {
-                    follower.followPath(paths.Path2, true);
-                    intake.setPower(1);
+                    follower.followPath(paths.Path1, true);
                     setPathState(2);
                 }
                 break;
 
             case 2:
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.RESET, true);
-                    intake.setPower(0);
-                    setPathState(3);
-                }
-
-            case 3:
                 if (!follower.isBusy()) {
                     setPathState(-1); // done
                 }
@@ -128,7 +112,7 @@ public class PedroAutonomous extends OpMode {
 
             default:
                 if (!follower.isBusy()) {
-                    follower.followPath(paths.RESET, true);
+                    follower.followPath(paths.Path1, true);
                 }
                 break;
         }
@@ -140,39 +124,18 @@ public class PedroAutonomous extends OpMode {
     }
 
     public static class Paths {
-        public PathChain RESET, Path1, Path2;
+        public PathChain Path1;
 
         public Paths(Follower follower) {
             Path1 = follower.pathBuilder()
                     .addPath(
                             new BezierLine(
-                                    new Pose(97.814, 8.000),
-                                    new Pose(98.000, 35.000)
+                                    new Pose(124.000, 120.000),
+                                    new Pose(73.000, 70.000)
                             )
                     )
-                    .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(0))
+                    .setLinearHeadingInterpolation(Math.toRadians(-42), Math.toRadians(180))
                     .build();
-
-            Path2 = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(98.000, 35.000),
-                                    new Pose(130.000, 35.000)
-                            )
-                    )
-                    .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                    .build();
-
-            RESET = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    new Pose(130.000, 35.000),
-                                    new Pose(96.000, 8.000)
-                            )
-                    )
-                    .setConstantHeadingInterpolation(Math.toRadians(90))
-                    .build();
-
         }
     }
 }

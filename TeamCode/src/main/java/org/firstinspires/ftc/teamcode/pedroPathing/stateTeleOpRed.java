@@ -142,12 +142,12 @@ public class stateTeleOpRed extends LinearOpMode {
 
                 byte[] frameData = Base64.decode(BadAppleData.FRAMES[currentFrameIdx], Base64.DEFAULT);
                 int bitIndex = 0;
-                for (int y = 0; y < VIDEO_HEIGHT; y++) {
+                for (int goalHeight = 0; goalHeight < VIDEO_HEIGHT; goalHeight++) {
                     for (int x = 0; x < VIDEO_WIDTH; x++) {
                         int bytePos = bitIndex / 8;
                         int bitPos = 7 - (bitIndex % 8);
                         if (bytePos < frameData.length && ((frameData[bytePos] >> bitPos) & 1) == 1) {
-                            animationRenderer.setPixel(x, y);
+                            animationRenderer.setPixel(x, goalHeight);
                         }
                         bitIndex++;
                     }
@@ -180,22 +180,22 @@ public class stateTeleOpRed extends LinearOpMode {
         private int width, height;
         private boolean[][] pixels;
         public Renderer(int w, int h) { width = w; height = h; pixels = new boolean[h][w]; }
-        public void clear() { for (int y = 0; y < height; y++) Arrays.fill(pixels[y], false); }
-        public void setPixel(int x, int y) { if (x >= 0 && x < width && y >= 0 && y < height) pixels[y][x] = true; }
-        private boolean isTrue(int x, int y) { return (x >= 0 && x < width && y >= 0 && y < height) && pixels[y][x]; }
-        private char braille(int x, int y) {
+        public void clear() { for (int goalHeight = 0; goalHeight < height; goalHeight++) Arrays.fill(pixels[goalHeight], false); }
+        public void setPixel(int x, int goalHeight) { if (x >= 0 && x < width && goalHeight >= 0 && goalHeight < height) pixels[goalHeight][x] = true; }
+        private boolean isTrue(int x, int goalHeight) { return (x >= 0 && x < width && goalHeight >= 0 && goalHeight < height) && pixels[goalHeight][x]; }
+        private char braille(int x, int goalHeight) {
             int code = 0;
-            if (isTrue(x, y)) code |= 1; if (isTrue(x, y + 1)) code |= 2;
-            if (isTrue(x, y + 2)) code |= 4; if (isTrue(x + 1, y)) code |= 8;
-            if (isTrue(x + 1, y + 1)) code |= 16; if (isTrue(x + 1, y + 2)) code |= 32;
-            if (isTrue(x, y + 3)) code |= 64; if (isTrue(x + 1, y + 3)) code |= 128;
+            if (isTrue(x, goalHeight)) code |= 1; if (isTrue(x, goalHeight + 1)) code |= 2;
+            if (isTrue(x, goalHeight + 2)) code |= 4; if (isTrue(x + 1, goalHeight)) code |= 8;
+            if (isTrue(x + 1, goalHeight + 1)) code |= 16; if (isTrue(x + 1, goalHeight + 2)) code |= 32;
+            if (isTrue(x, goalHeight + 3)) code |= 64; if (isTrue(x + 1, goalHeight + 3)) code |= 128;
             return (char) (0x2800 + code);
         }
         public String renderHtml() {
             StringBuilder out = new StringBuilder();
             out.append("<tt><pre style='line-height:1; letter-spacing:0;'>");
-            for (int y = 0; y < height; y += 4) {
-                for (int x = 0; x < width; x += 2) out.append(braille(x, y));
+            for (int goalHeight = 0; goalHeight < height; goalHeight += 4) {
+                for (int x = 0; x < width; x += 2) out.append(braille(x, goalHeight));
                 out.append('\n');
             }
             return out.append("</pre></tt>").toString();

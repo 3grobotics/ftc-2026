@@ -607,7 +607,7 @@ public class ColorCamera extends LinearOpMode {
             if (gamepad1.x) {
                 v.var = 1;
             }
-            else if (gamepad1.y) {
+            else if (gamepad1.goalHeight) {
                 v.var = 0;
             }
 

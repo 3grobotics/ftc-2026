@@ -6,189 +6,94 @@ import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.PedroCoordinates;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.PwmControl;
-import com.qualcomm.robotcore.hardware.ServoImplEx;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import org.firstinspires.ftc.robotcore.external.navigation.Position;
+import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+
+import java.util.List;
 
 @TeleOp
 public class ExampleAprilTagUsage extends LinearOpMode {
-    private Limelight3A camera;
-    private Follower follower;
-    private boolean pathStarted = false;
-
-    // The goBILDA RGB Indicator Light
-    private ServoImplEx light;
-
-    // Target location (X in inches, Y in inches, Heading in radians)
-    private final Pose TARGET_LOCATION = new Pose(100, 100, Math.toRadians(36));
-
-    // Self-Tuning Adaptive Filters
-    private final SelfTuningKalmanFilter filterX = new SelfTuningKalmanFilter();
-    private final SelfTuningKalmanFilter filterY = new SelfTuningKalmanFilter();
-    private final SelfTuningKalmanFilter filterH = new SelfTuningKalmanFilter();
-
-    // Update Thresholds
-    private final double DISTANCE_TOLERANCE_INCHES = 2.5;
-    private final double HEADING_TOLERANCE_RADIANS = Math.toRadians(5.0);
+    Limelight3A limelight;
+    GoBildaPinpointDriver pinpoint;
+    double x = 0;
+    double y = 0;
 
     @Override
     public void runOpMode() throws InterruptedException {
-        camera = hardwareMap.get(Limelight3A.class, "limelight");
-
-        // --- Light Initialization ---
-        light = hardwareMap.get(ServoImplEx.class, "light");
-        // Expand the PWM range to match the 500-2500us goBILDA specification perfectly
-        light.setPwmRange(new PwmControl.PwmRange(500, 2500));
-        // Turn it on! Change this value (between 0.0 and 1.0) to change the color/flash pattern
-        light.setPosition(0.5);
-
-        follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(new Pose(72, 72, Math.toRadians(270)));
+        // --- INIT ---
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight.setPollRateHz(100); // This sets how often we ask Limelight for data (100 times per second)
+        limelight.start(); // This tells Limelight to start looking!
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+        limelight.pipelineSwitch(0); // Switch to pipeline number 0
+        pinpoint.resetPosAndIMU();
 
         waitForStart();
 
-        camera.start();
-        camera.pipelineSwitch(0);
+        // --- START ---
+        limelight.start();
 
-        while (opModeIsActive()) {
-            follower.update();
-
-            // 1. Follow Path (Executes only once)
-            if (!pathStarted) {
-                follower.followPath(
-                        follower.pathBuilder()
-                                .addPath(new BezierLine(follower.getPose(), TARGET_LOCATION))
-                                .setLinearHeadingInterpolation(
-                                        follower.getPose().getHeading(),
-                                        TARGET_LOCATION.getHeading()
-                                )
-                                .build()
-                );
-                pathStarted = true;
+        // --- LOOP ---
+        while (opModeIsActive() && !isStopRequested()) {
+            if((getXPoseFromlimelight() * 39.3700787) + (getYPoseFromlimelight() * 39.3700787) - (pinpoint.getPosX(DistanceUnit.INCH) + pinpoint.getPosY(DistanceUnit.INCH)) > 5){
+                pinpoint.setPosX(getXPoseFromlimelight() * 39.3700787 ,DistanceUnit.INCH);
+                pinpoint.setPosY(getYPoseFromlimelight() * 39.3700787 ,DistanceUnit.INCH);
             }
+            pinpoint.update();
+            telemetry.addData("Robot X", pinpoint.getPosX(DistanceUnit.INCH));
+            telemetry.addData("Robot Y", pinpoint.getPosY(DistanceUnit.INCH));
+            telemetry.addData("MT2 Location goalHeight:", y * 39.3700787);
+            telemetry.addData("MT2 Location x:", x * 39.3700787);
+            telemetry.addData("difference", ((getXPoseFromlimelight() * 39.3700787) + (getYPoseFromlimelight() * 39.3700787)) - (pinpoint.getPosX(DistanceUnit.INCH) + pinpoint.getPosY(DistanceUnit.INCH)));
 
-            // 2. Fetch Filtered Camera Pose
-            Pose camPose = getFilteredPoseFromCamera();
+            telemetry.update();
 
-            // 3. Pose Overwrite Logic based on Tolerance
-            if (camPose != null) {
-                double distanceError = Math.hypot(
-                        camPose.getX() - follower.getPose().getX(),
-                        camPose.getY() - follower.getPose().getY()
-                );
+        }
+    }
 
-                double headingError = Math.abs(camPose.getHeading() - follower.getPose().getHeading());
-                while (headingError > Math.PI) headingError -= 2 * Math.PI;
-                headingError = Math.abs(headingError);
+    private Double getXPoseFromlimelight() {
+        LLResult result = limelight.getLatestResult();
 
-                if (distanceError > DISTANCE_TOLERANCE_INCHES || headingError > HEADING_TOLERANCE_RADIANS) {
-                    follower.setPose(camPose);
+        if (result != null && result.isValid()) {
+            double robotYaw = pinpoint.getHeading(AngleUnit.DEGREES);
+            limelight.updateRobotOrientation(robotYaw);
+
+            if (result != null && result.isValid()) {
+                Pose3D botpose_mt2 = result.getBotpose_MT2();
+
+                if (botpose_mt2 != null) {
+                    x = botpose_mt2.getPosition().x;
+
                 }
             }
-
-            // 4. Telemetry
-            telemetry.addData("Follower Busy", follower.isBusy());
-            telemetry.addData("Odo X", follower.getPose().getX());
-            telemetry.addData("Odo Y", follower.getPose().getY());
-            telemetry.addData("Odo H (deg)", Math.toDegrees(follower.getPose().getHeading()));
-
-            if (camPose != null) {
-                telemetry.addData("Filtered Cam X", camPose.getX());
-                telemetry.addData("Filtered Cam Y", camPose.getY());
-            }
-            telemetry.update();
         }
-        camera.stop();
+        return x;
     }
 
-    Pose getFilteredPoseFromCamera() {
-        LLResult llResult = camera.getLatestResult();
+    private Double getYPoseFromlimelight() {
+        LLResult result = limelight.getLatestResult();
 
-        if (llResult == null || !llResult.isValid()) {
-            return null;
-        }
+        if (result != null && result.isValid()) {
+            double robotYaw = pinpoint.getHeading(AngleUnit.DEGREES);
+            limelight.updateRobotOrientation(robotYaw);
 
-        Pose3D botpose = llResult.getBotpose();
-        if (botpose == null || botpose.getPosition() == null) return null;
+            if (result != null && result.isValid()) {
+                Pose3D botpose_mt2 = result.getBotpose_MT2();
 
-        Position thePosition = botpose.getPosition();
+                if (botpose_mt2 != null) {
+                    y = botpose_mt2.getPosition().y;
 
-        double rawXInches = thePosition.x * 39.3700787;
-        double rawYInches = thePosition.y * 39.3700787;
-
-        double rawHeadingRad;
-        try {
-            rawHeadingRad = botpose.getOrientation().getYaw(AngleUnit.RADIANS);
-        } catch (Exception e) {
-            rawHeadingRad = follower.getPose().getHeading();
-        }
-
-        double filteredX = filterX.update(rawXInches);
-        double filteredY = filterY.update(rawYInches);
-        double filteredH = filterH.updateAngle(rawHeadingRad);
-
-        return new Pose(filteredX, filteredY, filteredH, FTCCoordinates.INSTANCE)
-                .getAsCoordinateSystem(PedroCoordinates.INSTANCE);
-    }
-
-    // --- Self-Tuning Adaptive Kalman Filter ---
-    public static class SelfTuningKalmanFilter {
-        private final double Q = 0.1;
-        private final double BASE_R = 0.5;
-        private double x;
-        private double p = 1.0;
-        private boolean initialized = false;
-
-        public double update(double measurement) {
-            if (!initialized) {
-                x = measurement;
-                p = 1.0;
-                initialized = true;
-                return x;
+                }
             }
-
-            double residual = Math.abs(measurement - x);
-            double dynamicR = BASE_R + (residual * residual * 0.5);
-
-            p = p + Q;
-            double k = p / (p + dynamicR);
-            x = x + k * (measurement - x);
-            p = (1 - k) * p;
-
-            return x;
         }
-
-        public double updateAngle(double measurement) {
-            if (!initialized) {
-                x = measurement;
-                p = 1.0;
-                initialized = true;
-                return x;
-            }
-
-            double diff = measurement - x;
-            while (diff > Math.PI) diff -= 2 * Math.PI;
-            while (diff < -Math.PI) diff += 2 * Math.PI;
-
-            double residual = Math.abs(diff);
-            double dynamicR = BASE_R + (residual * residual * 2.0);
-
-            p = p + Q;
-            double k = p / (p + dynamicR);
-
-            x = x + k * diff;
-
-            while (x > Math.PI) x -= 2 * Math.PI;
-            while (x < -Math.PI) x += 2 * Math.PI;
-
-            p = (1 - k) * p;
-            return x;
-        }
+        return y;
     }
 }
