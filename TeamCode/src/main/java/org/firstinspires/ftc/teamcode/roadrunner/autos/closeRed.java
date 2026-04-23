@@ -297,7 +297,11 @@ public class closeRed extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         Pose2d initialPose = new Pose2d(-44, 53, Math.toRadians(61));
-        Pose2d preloadScored = new Pose2d(-11,29,Math.toRadians(0));
+        Pose2d preloadScored = new Pose2d(12,24,Math.toRadians(90));
+        Pose2d afterFirst = new Pose2d(12,52,Math.toRadians(90));
+        Pose2d afterFlush = new Pose2d(5,55,Math.toRadians(90));
+        Pose2d afterSecondShot = new Pose2d(-12,20,Math.toRadians(90));
+
         MecanumDrive drive = new MecanumDrive(hardwareMap, initialPose);
         turret turret = new turret(hardwareMap);
         intake Intake = new intake(hardwareMap);
@@ -308,6 +312,37 @@ public class closeRed extends LinearOpMode {
                 .afterDisp(30, Intake.fire())
                 .afterDisp(40, Intake.intakeIn())
                 .build();
+
+        Action firstpickup = drive.actionBuilder(preloadScored)
+                // first pickup
+                .splineToSplineHeading(new Pose2d(12, 52, Math.toRadians(90)), Math.toRadians(90))
+                .build();
+
+        Action flush = drive.actionBuilder(afterFirst)
+                // flush
+                .setTangent(Math.toRadians(90))
+                .splineToLinearHeading(new Pose2d(5, 55, Math.toRadians(90)), Math.toRadians(90))
+                .build();
+
+
+        Action secondShot = drive.actionBuilder(afterFlush)
+                // back for second shot
+                .setTangent(Math.toRadians(270))
+                .splineToLinearHeading(new Pose2d(5, 30, Math.toRadians(90)), Math.toRadians(270))
+                .setTangent(Math.toRadians(270))
+                .splineToLinearHeading(new Pose2d(-12, 20, Math.toRadians(90)), Math.toRadians(215))
+                .build();
+
+        Action secondpickup = drive.actionBuilder(afterSecondShot)
+                // pickup second spike mark
+                .strafeTo(new Vector2d(-12, 55))
+                .build();
+
+
+
+
+
+
 
         Action turretRun = new turret(hardwareMap).sigmaSkibidiClip(-72,72);
         Action intake = new intake(hardwareMap).intakeIn();
@@ -326,7 +361,15 @@ public class closeRed extends LinearOpMode {
                                 turretRun,
                                 new SequentialAction(
                                         // this is where everything goes
-                                        preloadScore
+                                        preloadScore,
+                                        new ParallelAction(
+                                        firstpickup,
+                                                intake
+                                        ),
+                                        flush,
+                                        new ParallelAction(
+                                        secondShot,
+                                                intake)
                                 )
                         )
 

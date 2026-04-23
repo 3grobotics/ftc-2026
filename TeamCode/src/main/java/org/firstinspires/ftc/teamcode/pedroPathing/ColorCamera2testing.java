@@ -165,10 +165,10 @@ public class ColorCamera2testing extends LinearOpMode {
         boolean bb = gamepad2.b;
         boolean prevaa = aa;
         boolean prevbb = bb;
-        PhotonCore.CONTROL_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
-        PhotonCore.EXPANSION_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
-        PhotonCore.PARALLELIZE_SERVOS = true;
-        PhotonCore.enable();
+        //PhotonCore.CONTROL_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        //PhotonCore.EXPANSION_HUB.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        //PhotonCore.PARALLELIZE_SERVOS = true;
+        //PhotonCore.enable();
 
         float motif                         = 111;
         double robotX;
@@ -206,11 +206,11 @@ public class ColorCamera2testing extends LinearOpMode {
 
 
 
-            telemetry.addData("photon volts aux", PhotonCore.CONTROL_HUB.getAuxiliaryVoltage(VoltageUnit.VOLTS));
-            telemetry.addData("photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS));
-            telemetry.addData("expansion photon amps ", PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
-            telemetry.addData("total photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS) + PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
-            telemetry.addData("photon info ", PhotonCore.CONTROL_HUB.getConnectionInfo());
+            //telemetry.addData("photon volts aux", PhotonCore.CONTROL_HUB.getAuxiliaryVoltage(VoltageUnit.VOLTS));
+            //telemetry.addData("photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS));
+            //telemetry.addData("expansion photon amps ", PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            //telemetry.addData("total photon amps ", PhotonCore.CONTROL_HUB.getCurrent(CurrentUnit.AMPS) + PhotonCore.EXPANSION_HUB.getCurrent(CurrentUnit.AMPS));
+            //telemetry.addData("photon info ", PhotonCore.CONTROL_HUB.getConnectionInfo());
             //PhotonCore.CONTROL_HUB.setConstant(8388736);
             //PhotonCore.EXPANSION_HUB.setConstant(8388736);
 
